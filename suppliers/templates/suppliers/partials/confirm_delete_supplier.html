@@ -1,0 +1,18 @@
+<div class="modal-header bg-danger text-white">
+    <h5 class="modal-title">Potwierdź usunięcie</h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+</div>
+
+<div class="modal-body text-center py-4">
+    <i class="bi bi-exclamation-triangle text-danger display-4 mb-3"></i>
+    <p class="lead">Czy na pewno chcesz usunąć dostawcę: <br><strong>{{ supplier.name }}</strong>?</p>
+    <p class="text-muted small">Tej operacji nie można cofnąć.</p>
+</div>
+
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+    <form hx-post="{% url 'supplier_delete' supplier.pk %}" hx-target="#modal-content">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger px-4">Usuń dostawcę</button>
+    </form>
+</div>

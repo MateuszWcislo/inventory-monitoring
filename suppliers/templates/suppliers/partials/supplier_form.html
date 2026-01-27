@@ -1,0 +1,32 @@
+<div class="modal-header">
+    <h5 class="modal-title">
+        {% if supplier %} Edytuj: {{ supplier.name }} {% else %} Dodaj dostawcę {% endif %}
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+
+<form {% if supplier %} hx-post="{% url 'supplier_edit' supplier.id %}" {% else %} hx-post="{% url 'supplier_create' %}" {% endif %} hx-target="#modal-content">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="mb-3">
+            <label class="form-label fw-bold">Nazwa dostawcy</label>
+            {{ form.name }}
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-bold">NIP</label>
+            {{ form.nip }}
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-bold">Telefon</label>
+            {{ form.phone }}
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-bold">Adres</label>
+            {{ form.address }}
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" class="btn btn-primary">Zapisz</button>
+    </div>
+</form>

@@ -1,0 +1,70 @@
+<div class="modal-header">
+    <h5 class="modal-title">
+        {% if product %} <i class="bi bi-pencil-square me-2"></i>Edytuj: {{ product.name }} {% else %} <i class="bi bi-plus-circle me-2"></i>Dodaj nowy produkt {% endif %}
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+
+<form
+    {% if product %}
+        hx-post="{% url 'product_edit' product.id %}"
+    {% else %}
+        hx-post="{% url 'product_create' %}"
+    {% endif %}
+    hx-target="#modal-content">
+
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="row g-3">
+            <div class="col-md-8">
+                <label class="form-label fw-bold">Nazwa produktu</label>
+                {{ form.name }}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold">SKU</label>
+                {{ form.sku }}
+            </div>
+
+            <div class="col-12">
+                <label class="form-label fw-bold">Opis</label>
+                {{ form.description }}
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label fw-bold">Stan aktualny</label>
+                {{ form.current_stock }}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-bold">Próg minimalny</label>
+                {{ form.min_threshold }}
+            </div>
+
+            <div class="col-12">
+                <label class="form-label fw-bold">Dostawca domyślny</label>
+                {{ form.default_supplier }}
+            </div>
+
+            <div class="col-12">
+                <label class="form-label fw-bold">Wszyscy dostępni dostawcy</label>
+                <div class="border rounded p-3 bg-light" style="max-height: 150px; overflow-y: auto;">
+                    {% for checkbox in form.suppliers %}
+                        <div class="form-check">
+                            {{ checkbox.tag }}
+                            <label class="form-check-label ms-1">
+                                {{ checkbox.choice_label }}
+                            </label>
+                        </div>
+                    {% endfor %}
+                </div>
+                <small class="text-muted">Zaznacz wszystkich dostawców, którzy oferują ten produkt.</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" class="btn btn-primary px-4">
+            {% if product %} Zapisz zmiany {% else %} Dodaj produkt {% endif %}
+        </button>
+    </div>
+</form>

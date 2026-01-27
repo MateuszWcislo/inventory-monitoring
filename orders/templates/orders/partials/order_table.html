@@ -1,0 +1,92 @@
+<div class="table-responsive">
+    <div class="mb-3 px-3">
+        <button class="btn btn-danger btn-sm"
+                id="bulk-delete-btn"
+                hx-post="{% url 'order_bulk_delete' %}"
+                hx-include=".order-checkbox"
+                hx-confirm="Czy na pewno chcesz usunąć zaznaczone zamówienia?"
+                hx-target="#order-table-container">
+            <i class="bi bi-trash3 me-1"></i> Usuń zaznaczone
+        </button>
+    </div>
+
+    <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+            <tr>
+                <th style="width: 40px;">
+                    <input type="checkbox" class="form-check-input" id="check-all">
+                </th>
+                <th>Numer</th>
+                <th>Dostawca</th>
+                <th>Data</th>
+                <th>Status</th>
+                <th class="text-end">Akcje</th>
+            </tr>
+        </thead>
+        <tbody id="order-list-body">
+            {% for o in orders %}
+            <tr>
+                <td>
+                    <input type="checkbox" name="order_ids" value="{{ o.id }}" class="form-check-input order-checkbox">
+                </td>
+                <td class="small text-muted">{{ o.id }}</td>
+                <td><span class="fw-bold">{{ o.supplier.name }}</span></td>
+                <td>{{ o.created_at|date:"d.m.Y H:i" }}</td>
+                <td>
+                    {% if o.status == 'OPEN' %}
+                        <span class="badge bg-success">Otwarte</span>
+                    {% elif o.status == 'CLOSED' %}
+                        <span class="badge bg-secondary">Zamknięte</span>
+                    {% else %}
+                        <span class="badge bg-danger">Anulowane</span>
+                    {% endif %}
+                </td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-info"
+                            hx-get="{% url 'order_preview' o.id %}"
+                            hx-target="#modal-content"
+                            data-bs-toggle="modal"
+                            data-bs-target="#productModal">
+                        <i class="bi bi-eye"></i>
+                    </button>
+
+                    {% if o.status == 'OPEN' %}
+                        <button class="btn btn-sm btn-outline-primary"
+                                hx-get="{% url 'order_edit' o.id %}"
+                                hx-target="#modal-content"
+                                data-bs-toggle="modal"
+                                data-bs-target="#productModal">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                    {% endif %}
+                    <button class="btn btn-sm btn-outline-danger"
+                            hx-get="{% url 'order_delete' o.id %}"
+                            hx-target="#modal-content"
+                            data-bs-toggle="modal"
+                            data-bs-target="#productModal">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary"
+                            hx-get="{% url 'order_copy' o.id %}"
+                            hx-target="#modal-content"
+                            title="Kopiuj zamówienie">
+                        <i class="bi bi-copy"></i>
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center py-5 text-muted">Brak zamówień.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // Prosty skrypt do zaznaczania wszystkich checkboxów
+    document.getElementById('check-all')?.addEventListener('change', function(e) {
+        const checkboxes = document.querySelectorAll('.order-checkbox');
+        checkboxes.forEach(cb => cb.checked = e.target.checked);
+    });
+</script>

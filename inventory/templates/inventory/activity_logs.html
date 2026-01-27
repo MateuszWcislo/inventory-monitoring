@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-journal-text me-2"></i>Logi aktywności</h2>
+        <span class="badge bg-secondary">Strona {{ page_obj.number }} z {{ page_obj.paginator.num_pages }}</span>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Data i godzina</th>
+                        <th>Użytkownik</th>
+                        <th>Akcja</th>
+                        <th>Produkt</th>
+                        <th>Opis zdarzenia</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in page_obj %} <tr>
+                        <td class="text-nowrap text-muted">{{ log.timestamp|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            <span class="badge bg-light text-dark border">
+                                <i class="bi bi-person-fill me-1"></i>{{ log.user.username }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if log.action_type == 'CREATE' %}
+                                <span class="badge bg-success-subtle text-success border">UTWORZENIE</span>
+                            {% elif log.action_type == 'UPDATE' %}
+                                <span class="badge bg-primary-subtle text-primary border">EDYCJA</span>
+                            {% elif log.action_type == 'DELETE' %}
+                                <span class="badge bg-danger-subtle text-danger border">USUNIĘCIE</span>
+                            {% else %}
+                                <span class="badge bg-info-subtle text-info border">STANY</span>
+                            {% endif %}
+                        </td>
+                        <td class="fw-bold">{{ log.product_name }}</td>
+                        <td>{{ log.description }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">Brak zarejestrowanych aktywności.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <nav aria-label="Nawigacja stron">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1">&laquo; Pierwsza</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Poprzednia</a>
+                </li>
+            {% endif %}
+
+            <li class="page-item active">
+                <span class="page-link">
+                    Strona {{ page_obj.number }} z {{ page_obj.paginator.num_pages }}
+                </span>
+            </li>
+
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Następna</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Ostatnia &raquo;</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

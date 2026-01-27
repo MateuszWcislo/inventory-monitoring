@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0"><i class="bi bi-cart-check me-2"></i>Zamówienia</h2>
+        <p class="text-muted small mb-0">Zarządzaj procesem zakupowym i dostawami towaru.</p>
+    </div>
+
+    <button class="btn btn-primary"
+            hx-get="{% url 'order_create' %}"
+            hx-target="#modal-content"
+            data-bs-toggle="modal"
+            data-bs-target="#productModal"
+            data-bs-backdrop="static"
+            data-bs-keyboard="false">
+        <i class="bi bi-plus-lg me-2"></i>Nowe zamówienie
+    </button>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm bg-success text-white">
+            <div class="card-body">
+                <h6 class="card-title opacity-75">Otwarte</h6>
+                <div hx-get="{% url 'order_count' %}"
+                     hx-trigger="ordersChanged from:body">
+                    {% include 'orders/partials/order_count.html' %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div id="order-table-container"
+             hx-get="{% url 'order_list' %}"
+             hx-trigger="ordersChanged from:body">
+            {% include 'orders/partials/order_table.html' %}
+        </div>
+    </div>
+</div>
+{% endblock %}

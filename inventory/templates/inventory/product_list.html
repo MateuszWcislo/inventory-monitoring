@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between mb-4">
+    <h2>Magazyn</h2>
+    <button class="btn btn-primary"
+            hx-get="{% url 'product_create' %}"
+            hx-target="#modal-content"
+            data-bs-toggle="modal"
+            data-bs-target="#productModal">Dodaj produkt</button>
+</div>
+
+<div id="product-table-container"
+     hx-get="{% url 'product_list' %}"
+     hx-trigger="productChanged from:body">
+    {% include 'inventory/partials/product_table.html' %}
+</div>
+{% endblock %}

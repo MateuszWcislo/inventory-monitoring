@@ -1,0 +1,147 @@
+<div class="modal-header bg-light">
+    <h5 class="modal-title">
+        {% if order and order.id %}
+            Edytuj zamówienie <small class="text-muted">#{{ order.id|stringformat:".8s" }}</small>
+        {% else %}
+            Nowe zamówienie
+        {% endif %}
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+
+<form {% if order and order.id %} hx-post="{% url 'order_edit' order.id %}" {% else %} hx-post="{% url 'order_create' %}" {% endif %}
+      hx-target="#modal-content">
+    {% csrf_token %}
+    <div class="modal-body">
+
+        <div class="row mb-4">
+            <div class="col-md-7">
+                <label class="form-label fw-bold small text-uppercase">Dostawca</label>
+                {{ form.supplier }}
+                {% if form.supplier.errors %}
+                    <div class="text-danger small">{{ form.supplier.errors }}</div>
+                {% endif %}
+            </div>
+           {% if form.status %}
+            <div class="col-md-5">
+                <label class="form-label fw-bold small text-uppercase">Status</label>
+                {{ form.status }}
+                {% if form.status.errors %}
+                    <div class="text-danger small">{{ form.status.errors }}</div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        <hr>
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0"><i class="bi bi-box-seam me-2"></i>Produkty w zamówieniu</h6>
+            <button type="button" class="btn btn-sm btn-success" id="add-item-btn">
+                <i class="bi bi-plus-circle me-1"></i>Dodaj produkt
+            </button>
+        </div>
+
+        {{ formset.management_form }}
+        <div id="order-items-container">
+           {% for f in formset %}
+                <div class="row g-2 mb-2 align-items-end item-row border-bottom pb-2">
+                    {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+
+                    <div class="col-7">
+                        <label class="small text-muted d-block">Produkt</label>
+                        {{ f.product }}
+                    </div>
+                    <div class="col-3">
+                        <label class="small text-muted d-block">Ilość</label>
+                        {{ f.quantity }}
+                    </div>
+                    <div class="col-2 text-center pb-1">
+                        <div class="d-none">
+                            {{ f.DELETE }}
+                        </div>
+
+                        <button type="button" class="btn btn-outline-danger btn-sm remove-item-btn mt-3">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <div id="empty-form" class="d-none">
+            <div class="row g-2 mb-2 align-items-end item-row border-bottom pb-2">
+                <div class="col-7">
+                    {{ formset.empty_form.product }}
+                </div>
+                <div class="col-3">
+                    {{ formset.empty_form.quantity }}
+                </div>
+                <div class="col-2 text-center pb-2">
+                    <div class="d-none">
+                        {{ formset.empty_form.DELETE }}
+                    </div>
+                    <button type="button" class="btn btn-outline-danger btn-sm remove-item-btn">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" class="btn btn-primary px-4">
+            {% if order and order.id %} Zaktualizuj zamówienie {% else %} Zapisz i stwórz {% endif %}
+        </button>
+    </div>
+</form>
+
+<script>
+    (function() {
+        const addBtn = document.getElementById('add-item-btn');
+        if (addBtn) {
+            // Obsługa przycisku "Dodaj produkt"
+            addBtn.onclick = function() {
+                const container = document.getElementById('order-items-container');
+                const totalForms = document.querySelector('[id$="TOTAL_FORMS"]');
+                const formNum = parseInt(totalForms.value);
+                const emptyFormHtml = document.getElementById('empty-form').innerHTML;
+
+                const newFormHtml = emptyFormHtml.replace(/__prefix__/g, formNum);
+                const newRow = document.createElement('div');
+                newRow.innerHTML = newFormHtml;
+                container.appendChild(newRow);
+
+                totalForms.value = formNum + 1;
+            };
+        }
+
+        // Obsługa kliknięć w "Usuń" (jeden listener na cały dokument)
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.remove-item-btn');
+            if (!btn) return;
+
+            const row = btn.closest('.item-row');
+            if (!row) return;
+
+            // Szukamy checkboxa DELETE.
+            // Wiersze z bazy go mają, nowe wiersze z empty-form też (po poprawce wyżej).
+            const deleteCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+
+            // Sprawdzamy, czy wiersz ma ID (czyli czy jest już w bazie)
+            const idField = row.querySelector('input[type="hidden"][name$="-id"]');
+            const hasId = idField && idField.value !== "";
+
+            if (hasId && deleteCheckbox) {
+                // Jeśli jest w bazie: zaznaczamy DELETE i chowamy wiersz 🙈
+                deleteCheckbox.checked = true;
+                row.style.display = 'none';
+            } else {
+                // Jeśli to całkiem nowy wiersz: po prostu go usuwamy z widoku 🗑️
+                row.remove();
+            }
+        });
+    })();
+</script>
