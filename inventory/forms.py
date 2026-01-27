@@ -7,7 +7,7 @@ class ProductForm(forms.ModelForm):
         # Dodaj 'description' do listy pól, jeśli chcesz go używać!
         fields = [
             'name', 'sku', 'description', 'current_stock',
-            'min_threshold', 'default_supplier', 'suppliers'
+            'min_threshold', 'suppliers'
         ]
 
         widgets = {
@@ -16,7 +16,6 @@ class ProductForm(forms.ModelForm):
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'current_stock': forms.NumberInput(attrs={'class': 'form-control'}),
             'min_threshold': forms.NumberInput(attrs={'class': 'form-control'}),
-            'default_supplier': forms.Select(attrs={'class': 'form-select'}),
             'suppliers': forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
         }
 

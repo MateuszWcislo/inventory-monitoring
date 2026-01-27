@@ -6,6 +6,7 @@ from .models import Order, OrderItem
 from .forms import OrderForm, OrderItemFormSet
 from django.urls import reverse
 import json
+from suppliers.models import Supplier
 
 @login_required
 def order_list(request):
@@ -17,23 +18,28 @@ def order_list(request):
 
 @login_required
 def order_create(request):
-    if request.method == "POST":
+    # Sprawdzamy dostawcę w POST (przy zapisie) LUB w GET (przy zmianie w select)
+    supplier_id = request.POST.get('supplier') or request.GET.get('supplier')
+
+    # Bezpieczne pobranie dostawcy (używamy filter, by uniknąć 404 przy braku wyboru)
+    supplier = Supplier.objects.filter(id=supplier_id).first() if supplier_id else None
+
+    if request.method == "POST" and not request.GET.get('refresh'):
         form = OrderForm(request.POST)
-        formset = OrderItemFormSet(request.POST)
+        formset = OrderItemFormSet(request.POST, form_kwargs={'supplier': supplier})
+
         if form.is_valid() and formset.is_valid():
             with transaction.atomic():
-                # Tworzymy obiekt, ale jeszcze nie zapisujemy w bazie
                 order = form.save(commit=False)
-                # Wymuszamy status OPEN, niezależnie od tego co wysłał formularz 🛡️
                 order.status = 'OPEN'
                 order.save()
-
                 formset.instance = order
                 formset.save()
             return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
     else:
-        form = OrderForm()
-        formset = OrderItemFormSet()
+        # Ten blok wykona się przy pierwszym wejściu ORAZ przy zmianie dostawcy przez HTMX
+        form = OrderForm(initial={'supplier': supplier})
+        formset = OrderItemFormSet(form_kwargs={'supplier': supplier})
 
     return render(request, 'orders/partials/order_form.html', {
         'form': form,
@@ -44,17 +50,19 @@ def order_create(request):
 
 @login_required
 def order_edit(request, pk):
-    # Pobieramy zamówienie wraz z produktami (dla wydajności prefetch_related)
     order = get_object_or_404(Order.objects.prefetch_related('items__product'), pk=pk)
 
-    # 1. Sprawdzamy status. Jeśli nie jest OTWARTY, przekierowujemy na podgląd 👁️
     if order.status != 'OPEN':
         return render(request, 'orders/partials/order_detail.html', {'order': order})
 
-    # 2. Logika dla zamówień OTWARTYCH (bez zmian)
     if request.method == "POST":
         form = OrderForm(request.POST, instance=order)
-        formset = OrderItemFormSet(request.POST, instance=order)
+        # Kluczowe: przekazujemy dostawcę zamówienia do formsetu
+        formset = OrderItemFormSet(
+            request.POST,
+            instance=order,
+            form_kwargs={'supplier': order.supplier}
+        )
         if form.is_valid() and formset.is_valid():
             with transaction.atomic():
                 updated_order = form.save()
@@ -64,14 +72,17 @@ def order_edit(request, pk):
             return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
     else:
         form = OrderForm(instance=order)
-        formset = OrderItemFormSet(instance=order)
+        # Kluczowe: przekazujemy dostawcę zamówienia do formsetu przy ładowaniu formularza
+        formset = OrderItemFormSet(
+            instance=order,
+            form_kwargs={'supplier': order.supplier}
+        )
 
     return render(request, 'orders/partials/order_form.html', {
         'form': form,
         'formset': formset,
         'order': order
     })
-
 
 @login_required
 def order_preview(request, pk):

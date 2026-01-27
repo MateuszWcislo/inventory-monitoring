@@ -40,11 +40,6 @@
             </div>
 
             <div class="col-12">
-                <label class="form-label fw-bold">Dostawca domyślny</label>
-                {{ form.default_supplier }}
-            </div>
-
-            <div class="col-12">
                 <label class="form-label fw-bold">Wszyscy dostępni dostawcy</label>
                 <div class="border rounded p-3 bg-light" style="max-height: 150px; overflow-y: auto;">
                     {% for checkbox in form.suppliers %}

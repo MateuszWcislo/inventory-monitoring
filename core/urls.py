@@ -30,9 +30,9 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
 
     # Products
-    path('/products/', include('inventory.urls')),
+    path('products/', include('inventory.urls')),
     # Suppliers
-    path('/suppliers/', include('suppliers.urls')),
+    path('suppliers/', include('suppliers.urls')),
     # Orders
-    path('/orders/', include('orders.urls')),
+    path('orders/', include('orders.urls')),
 ]

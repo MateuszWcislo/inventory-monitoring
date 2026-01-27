@@ -1,0 +1,46 @@
+<div class="modal-header">
+    <h5 class="modal-title">Dodaj do zamówienia: {{ product.name }}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<form hx-post="{% url 'add_to_order_save' product.id %}"
+      hx-on::after-request="bootstrap.Modal.getInstance(document.getElementById('productModal')).hide()">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="mb-3">
+            <label class="form-label fw-bold">Wybierz docelowe zamówienie</label>
+            <select name="order_id" class="form-select" required>
+                <optgroup label="Utwórz nowe zamówienie dla...">
+                    {% for s in product_suppliers %}
+                        <option value="new_{{ s.id }}">+ Nowe zamówienie: {{ s.name }}</option>
+                    {% empty %}
+                        <option disabled>Brak przypisanych dostawców do produktu</option>
+                    {% endfor %}
+                </optgroup>
+
+                {% if open_orders %}
+                <optgroup label="Istniejące otwarte zamówienia">
+                    {% for o in open_orders %}
+                        <option value="{{ o.id }}">
+                            #{{ o.id }} - {{ o.supplier.name }} (z dnia {{ o.created_at|date:"d.m" }})
+                        </option>
+                    {% endfor %}
+                </optgroup>
+                {% endif %}
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold">Ilość</label>
+            <div class="input-group">
+                <input type="number" name="quantity" value="1" min="1" class="form-control" required>
+                <span class="input-group-text">szt.</span>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" class="btn btn-success">
+            <i class="bi bi-plus-circle me-1"></i> Potwierdź dodanie
+        </button>
+    </div>
+</form>

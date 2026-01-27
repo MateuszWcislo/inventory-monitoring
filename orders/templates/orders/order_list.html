@@ -24,7 +24,7 @@
             <div class="card-body">
                 <h6 class="card-title opacity-75">Otwarte</h6>
                 <div hx-get="{% url 'order_count' %}"
-                     hx-trigger="ordersChanged from:body">
+                     hx-trigger="load, ordersChanged from:body">
                     {% include 'orders/partials/order_count.html' %}
                 </div>
             </div>

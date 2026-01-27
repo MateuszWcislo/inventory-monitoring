@@ -1,0 +1,12 @@
+<button class="btn btn-sm btn-outline-secondary"
+        id="fav-btn-{{ p.id }}"
+        title="Ulubione"
+        hx-post="{% url 'toggle_favourite' p.id %}"
+        hx-target="#product-table-container"
+        hx-swap="innerHTML">
+        {% if p.is_favourite %}
+            <i class="bi bi-heart-fill text-danger"></i>
+        {% else %}
+            <i class="bi bi-heart"></i>
+        {% endif %}
+</button>

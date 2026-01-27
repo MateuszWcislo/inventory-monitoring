@@ -1,0 +1,39 @@
+<div class="modal-header bg-success text-white">
+    <h5 class="modal-title"><i class="bi bi-cart-plus-fill me-2"></i>Dodaj zbiorczo ({{ products.count }} poz.)</h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+</div>
+<form hx-post="{% url 'bulk_add_to_order_save' %}"
+      hx-on::after-request="bootstrap.Modal.getInstance(document.getElementById('productModal')).hide()">
+    {% csrf_token %}
+    <input type="hidden" name="product_ids" value="{{ product_ids }}">
+
+    <div class="modal-body">
+        <div class="alert alert-info py-2 small">
+            Wybrano: <strong>{% for p in products %}{{ p.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</strong>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold">Wybierz dostawcę i zamówienie</label>
+            <select name="order_id" class="form-select" required>
+                <optgroup label="Utwórz nowe zamówienie dla wspólnego dostawcy">
+                    {% for s in common_suppliers %}
+                        <option value="new_{{ s.id }}">+ Nowe zamówienie: {{ s.name }}</option>
+                    {% endfor %}
+                </optgroup>
+
+                {% if open_orders %}
+                <optgroup label="Istniejące otwarte zamówienia">
+                    {% for o in open_orders %}
+                        <option value="{{ o.id }}">#{{ o.id }} - {{ o.supplier.name }}</option>
+                    {% endfor %}
+                </optgroup>
+                {% endif %}
+            </select>
+            <div class="form-text">System automatycznie doda po 1 sztuce każdego produktu. Ilości możesz edytować później w module zamówień.</div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" class="btn btn-success">Potwierdź dodanie</button>
+    </div>
+</form>

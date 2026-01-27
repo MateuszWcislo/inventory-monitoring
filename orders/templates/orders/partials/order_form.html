@@ -14,30 +14,56 @@
     {% csrf_token %}
     <div class="modal-body">
 
-        <div class="row mb-4">
-            <div class="col-md-7">
-                <label class="form-label fw-bold small text-uppercase">Dostawca</label>
-                {{ form.supplier }}
-                {% if form.supplier.errors %}
-                    <div class="text-danger small">{{ form.supplier.errors }}</div>
+        <div class="row g-3 mb-3">
+            <div class="{% if form.status %}col-md-7{% else %}col-12{% endif %}">
+                <label class="fw-bold small mb-1">Dostawca</label>
+                {% if formset.initial|length > 0 or order.id %}
+                    <div class="input-group">
+                        <span class="input-group-text bg-white py-1"><i class="bi bi-truck"></i></span>
+                        <select name="supplier" class="form-select bg-light" style="pointer-events: none;">
+                            {% for s in form.fields.supplier.queryset %}
+                                {% if form.instance.supplier_id == s.id or request.GET.supplier == s.id|stringformat:"s" %}
+                                    <option value="{{ s.id }}" selected>{{ s.name }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                {% else %}
+                    <select name="supplier" class="form-select"
+                            hx-get="{% url 'order_create' %}"
+                            hx-target="#modal-content"
+                            hx-trigger="change"
+                            hx-vals='{"refresh": "true"}'>
+                        <option value="">-- Wybierz dostawcę --</option>
+                        {% for s in form.fields.supplier.queryset %}
+                            <option value="{{ s.id }}" {% if form.instance.supplier_id == s.id or request.GET.supplier == s.id|stringformat:"s" %}selected{% endif %}>
+                                {{ s.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
                 {% endif %}
             </div>
-           {% if form.status %}
+
+            {% if form.status %}
             <div class="col-md-5">
-                <label class="form-label fw-bold small text-uppercase">Status</label>
+                <label class="fw-bold small mb-1 text-primary">Status</label>
                 {{ form.status }}
-                {% if form.status.errors %}
-                    <div class="text-danger small">{{ form.status.errors }}</div>
-                {% endif %}
             </div>
             {% endif %}
         </div>
+
+        {% if order.id and order.status == 'OPEN' %}
+            <div class="alert alert-info py-2 small mb-3">
+                <i class="bi bi-info-circle me-2"></i>Zmiana statusu na <strong>Zamknięte</strong> doda produkty do magazynu.
+            </div>
+        {% endif %}
 
         <hr>
 
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h6 class="mb-0"><i class="bi bi-box-seam me-2"></i>Produkty w zamówieniu</h6>
-            <button type="button" class="btn btn-sm btn-success" id="add-item-btn">
+            <button type="button" class="btn btn-sm btn-success {% if not request.GET.supplier and not form.instance.supplier_id %}disabled{% endif %}"
+                    id="add-item-btn">
                 <i class="bi bi-plus-circle me-1"></i>Dodaj produkt
             </button>
         </div>
@@ -57,10 +83,7 @@
                         {{ f.quantity }}
                     </div>
                     <div class="col-2 text-center pb-1">
-                        <div class="d-none">
-                            {{ f.DELETE }}
-                        </div>
-
+                        <div class="d-none">{{ f.DELETE }}</div>
                         <button type="button" class="btn btn-outline-danger btn-sm remove-item-btn mt-3">
                             <i class="bi bi-trash"></i>
                         </button>
@@ -72,27 +95,27 @@
         <div id="empty-form" class="d-none">
             <div class="row g-2 mb-2 align-items-end item-row border-bottom pb-2">
                 <div class="col-7">
+                    <label class="small text-muted d-block">Produkt</label>
                     {{ formset.empty_form.product }}
                 </div>
                 <div class="col-3">
+                    <label class="small text-muted d-block">Ilość</label>
                     {{ formset.empty_form.quantity }}
                 </div>
-                <div class="col-2 text-center pb-2">
-                    <div class="d-none">
-                        {{ formset.empty_form.DELETE }}
-                    </div>
-                    <button type="button" class="btn btn-outline-danger btn-sm remove-item-btn">
+                <div class="col-2 text-center pb-1">
+                    <div class="d-none">{{ formset.empty_form.DELETE }}</div>
+                    <button type="button" class="btn btn-outline-danger btn-sm remove-item-btn mt-3">
                         <i class="bi bi-trash"></i>
                     </button>
                 </div>
             </div>
         </div>
-
     </div>
 
     <div class="modal-footer bg-light">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
-        <button type="submit" class="btn btn-primary px-4">
+        <button type="submit" class="btn btn-primary px-4"
+                {% if not request.GET.supplier and not form.instance.supplier_id %}disabled{% endif %}>
             {% if order and order.id %} Zaktualizuj zamówienie {% else %} Zapisz i stwórz {% endif %}
         </button>
     </div>
@@ -101,47 +124,23 @@
 <script>
     (function() {
         const addBtn = document.getElementById('add-item-btn');
-        if (addBtn) {
-            // Obsługa przycisku "Dodaj produkt"
+        const container = document.getElementById('order-items-container');
+        const totalForms = document.querySelector('input[name$="-TOTAL_FORMS"]');
+
+        if (addBtn && container && totalForms) {
             addBtn.onclick = function() {
-                const container = document.getElementById('order-items-container');
-                const totalForms = document.querySelector('[id$="TOTAL_FORMS"]');
                 const formNum = parseInt(totalForms.value);
                 const emptyFormHtml = document.getElementById('empty-form').innerHTML;
-
-                const newFormHtml = emptyFormHtml.replace(/__prefix__/g, formNum);
+                const newRowHtml = emptyFormHtml.replace(/__prefix__/g, formNum);
                 const newRow = document.createElement('div');
-                newRow.innerHTML = newFormHtml;
-                container.appendChild(newRow);
-
+                newRow.innerHTML = newRowHtml;
+                container.appendChild(newRow.firstElementChild);
                 totalForms.value = formNum + 1;
             };
         }
 
-        // Obsługa kliknięć w "Usuń" (jeden listener na cały dokument)
-        document.addEventListener('click', function(e) {
+        container.addEventListener('click', function(e) {
             const btn = e.target.closest('.remove-item-btn');
             if (!btn) return;
-
             const row = btn.closest('.item-row');
-            if (!row) return;
-
-            // Szukamy checkboxa DELETE.
-            // Wiersze z bazy go mają, nowe wiersze z empty-form też (po poprawce wyżej).
-            const deleteCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
-
-            // Sprawdzamy, czy wiersz ma ID (czyli czy jest już w bazie)
-            const idField = row.querySelector('input[type="hidden"][name$="-id"]');
-            const hasId = idField && idField.value !== "";
-
-            if (hasId && deleteCheckbox) {
-                // Jeśli jest w bazie: zaznaczamy DELETE i chowamy wiersz 🙈
-                deleteCheckbox.checked = true;
-                row.style.display = 'none';
-            } else {
-                // Jeśli to całkiem nowy wiersz: po prostu go usuwamy z widoku 🗑️
-                row.remove();
-            }
-        });
-    })();
-</script>
+            const deleteCheckbox = row.querySelector('input[type="checkbox"][name$="-

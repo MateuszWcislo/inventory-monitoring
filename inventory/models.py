@@ -8,6 +8,7 @@ class Product(models.Model):
     description = models.TextField(blank=True, verbose_name="Opis", null=True)
     current_stock = models.IntegerField(default=0, verbose_name="Aktualny stan", null=True)
     min_threshold = models.IntegerField(default=5, verbose_name="Próg alarmowy", null=True)
+    is_favourite = models.BooleanField(default=False, verbose_name="Ulubiony", null=True)
 
     # Wielu dostawców (Many-to-Many)
     suppliers = models.ManyToManyField(
@@ -15,16 +16,6 @@ class Product(models.Model):
         related_name='products',
         blank=True,
         verbose_name="Dostawcy"
-    )
-
-    # Domyślny dostawca (One-to-Many)
-    default_supplier = models.ForeignKey(
-        Supplier,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='default_for_products',
-        verbose_name="Domyślny dostawca"
     )
 
     created = models.DateTimeField(auto_now_add=True)
