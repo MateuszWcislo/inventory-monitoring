@@ -7,8 +7,7 @@
             hx-get="{% url 'supplier_create' %}"
             hx-target="#modal-content"
             data-bs-toggle="modal"
-            data-bs-target="#productModal">
-        <i class="bi bi-plus-lg me-2"></i>Dodaj dostawcę
+            data-bs-target="#supplierModal"> <i class="bi bi-plus-lg me-2"></i>Dodaj dostawcę
     </button>
 </div>
 
@@ -16,5 +15,12 @@
      hx-get="{% url 'supplier_list' %}"
      hx-trigger="suppliersChanged from:body">
     {% include 'suppliers/partials/supplier_table.html' %}
+</div>
+
+<div class="modal fade" id="supplierModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" id="modal-content">
+            </div>
+    </div>
 </div>
 {% endblock %}

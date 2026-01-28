@@ -7,6 +7,8 @@ from .forms import OrderForm, OrderItemFormSet
 from django.urls import reverse
 import json
 from suppliers.models import Supplier
+from django.db.models import Prefetch
+from django.views.decorators.http import require_http_methods
 
 @login_required
 def order_list(request):
@@ -49,46 +51,72 @@ def order_create(request):
 
 
 @login_required
+@require_http_methods(["GET", "POST", "DELETE"])  # Pozwalamy na DELETE
 def order_edit(request, pk):
-    order = get_object_or_404(Order.objects.prefetch_related('items__product'), pk=pk)
+    order = get_object_or_404(Order, pk=pk)
+
+    # OBSŁUGA ANULOWANIA (USUWANIA)
+    if request.method == "DELETE":
+        order.delete()
+        # Zwracamy pusty response z triggerem do odświeżenia listy za modalem
+        return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
 
     if order.status != 'OPEN':
         return render(request, 'orders/partials/order_detail.html', {'order': order})
 
     if request.method == "POST":
+        old_status = order.status
         form = OrderForm(request.POST, instance=order)
-        # Kluczowe: przekazujemy dostawcę zamówienia do formsetu
         formset = OrderItemFormSet(
             request.POST,
             instance=order,
             form_kwargs={'supplier': order.supplier}
         )
+
         if form.is_valid() and formset.is_valid():
             with transaction.atomic():
                 updated_order = form.save()
                 formset.save()
-                if updated_order.status == 'CLOSED':
-                    update_stock_on_closure(updated_order)
-            return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
-    else:
-        form = OrderForm(instance=order)
-        # Kluczowe: przekazujemy dostawcę zamówienia do formsetu przy ładowaniu formularza
-        formset = OrderItemFormSet(
-            instance=order,
-            form_kwargs={'supplier': order.supplier}
-        )
 
+                # LOGIKA ZAMYKANIA:
+                # Sprawdzamy czy status zmienił się na CLOSED
+                if old_status == 'OPEN' and updated_order.status == 'CLOSED':
+                    # Wywołujemy aktualizację stanów TYLKO jeśli są produkty
+                    if updated_order.items.exists():
+                        update_stock_on_closure(updated_order)
+
+            return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
+
+        # Jeśli walidacja nie przeszła, renderujemy formularz z błędami
+        return render(request, 'orders/partials/order_form.html', {
+            'form': form, 'formset': formset, 'order': order
+        })
+
+    # GET
+    form = OrderForm(instance=order)
+    formset = OrderItemFormSet(instance=order, form_kwargs={'supplier': order.supplier})
     return render(request, 'orders/partials/order_form.html', {
-        'form': form,
-        'formset': formset,
-        'order': order
+        'form': form, 'formset': formset, 'order': order
     })
+
 
 @login_required
 def order_preview(request, pk):
-    order = get_object_or_404(Order.objects.prefetch_related('items__product'), pk=pk)
-    return render(request, 'orders/partials/order_detail.html', {'order': order})
+    # Pobieramy zamówienie, by poznać dostawcę
+    order_instance = get_object_or_404(Order, pk=pk)
 
+    # Tworzymy niestandardowy Prefetch, który filtruje pozycje po aktualnym asortymencie dostawcy
+    items_prefetch = Prefetch(
+        'items',
+        queryset=OrderItem.objects.filter(
+            product__in=order_instance.supplier.products.all()
+        ).select_related('product')
+    )
+
+    # Pobieramy zamówienie ponownie z zastosowaniem filtra
+    order = Order.objects.prefetch_related(items_prefetch).get(pk=pk)
+
+    return render(request, 'orders/partials/order_detail.html', {'order': order})
 
 @login_required
 def order_delete(request, pk):
@@ -100,7 +128,10 @@ def order_delete(request, pk):
 
 
 def update_stock_on_closure(order):
-    for item in order.items.all():
+    # Pobieramy pozycje bezpośrednio z bazy danych, omijając cache obiektu 'order'
+    fresh_items = OrderItem.objects.filter(order=order)
+
+    for item in fresh_items:
         product = item.product
         product.current_stock += item.quantity
         product.save()

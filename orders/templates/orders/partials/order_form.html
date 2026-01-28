@@ -58,6 +58,12 @@
             </div>
         {% endif %}
 
+        {% if formset.non_form_errors %}
+            <div class="alert alert-danger py-2 small">
+                {% for error in formset.non_form_errors %}{{ error }}{% endfor %}
+            </div>
+        {% endif %}
+
         <hr>
 
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -69,29 +75,40 @@
         </div>
 
         {{ formset.management_form }}
+
         <div id="order-items-container">
            {% for f in formset %}
-                <div class="row g-2 mb-2 align-items-end item-row border-bottom pb-2">
-                    {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+                {# Wyświetlamy tylko produkty powiązane z dostawcą lub puste formy #}
+                {% if not f.instance.pk or f.instance.product in order.supplier.products.all %}
+                    <div class="row g-2 mb-2 align-items-end item-row border-bottom pb-2">
+                        {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
 
-                    <div class="col-7">
-                        <label class="small text-muted d-block">Produkt</label>
-                        {{ f.product }}
+                        <div class="col-7">
+                            <label class="small text-muted d-block">Produkt</label>
+                            {{ f.product }}
+                        </div>
+                        <div class="col-3">
+                            <label class="small text-muted d-block">Ilość</label>
+                            {{ f.quantity }}
+                        </div>
+                        <div class="col-2 text-center pb-1">
+                            <div class="d-none">{{ f.DELETE }}</div>
+                            <button type="button" class="btn btn-outline-danger btn-sm remove-item-btn mt-3">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="col-3">
-                        <label class="small text-muted d-block">Ilość</label>
-                        {{ f.quantity }}
+                {% else %}
+                    {# Ukryte pola dla "nielegalnych" produktów, aby zachować ciągłość formsetu #}
+                    <div class="d-none">
+                        {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+                        {{ f.product }} {{ f.quantity }} {{ f.DELETE }}
                     </div>
-                    <div class="col-2 text-center pb-1">
-                        <div class="d-none">{{ f.DELETE }}</div>
-                        <button type="button" class="btn btn-outline-danger btn-sm remove-item-btn mt-3">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            {% endfor %}
+                {% endif %}
+           {% endfor %}
         </div>
 
+        {# Szablon pustego wiersza #}
         <div id="empty-form" class="d-none">
             <div class="row g-2 mb-2 align-items-end item-row border-bottom pb-2">
                 <div class="col-7">
@@ -112,12 +129,25 @@
         </div>
     </div>
 
-    <div class="modal-footer bg-light">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
-        <button type="submit" class="btn btn-primary px-4"
-                {% if not request.GET.supplier and not form.instance.supplier_id %}disabled{% endif %}>
-            {% if order and order.id %} Zaktualizuj zamówienie {% else %} Zapisz i stwórz {% endif %}
-        </button>
+    <div class="modal-footer bg-light d-flex justify-content-between">
+        <div>
+            {% if order and order.id %}
+                <button type="button"
+                        class="btn btn-outline-danger"
+                        hx-delete="{% url 'order_edit' order.id %}"
+                        hx-confirm="Czy na pewno chcesz anulować i trwale usunąć to zamówienie?"
+                        hx-target="#modal-content">
+                    <i class="bi bi-trash me-1"></i>Anuluj zamówienie
+                </button>
+            {% endif %}
+        </div>
+        <div>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Powrót</button>
+            <button type="submit" class="btn btn-primary px-4"
+                    {% if not request.GET.supplier and not form.instance.supplier_id %}disabled{% endif %}>
+                {% if order and order.id %} Zaktualizuj {% else %} Zapisz i stwórz {% endif %}
+            </button>
+        </div>
     </div>
 </form>
 
@@ -126,21 +156,44 @@
         const addBtn = document.getElementById('add-item-btn');
         const container = document.getElementById('order-items-container');
         const totalForms = document.querySelector('input[name$="-TOTAL_FORMS"]');
+        const emptyFormDiv = document.getElementById('empty-form');
 
-        if (addBtn && container && totalForms) {
-            addBtn.onclick = function() {
+        if (addBtn && container && totalForms && emptyFormDiv) {
+            // Czyścimy ewentualne stare eventy (ważne przy HTMX)
+            addBtn.onclick = function(e) {
+                e.preventDefault();
                 const formNum = parseInt(totalForms.value);
-                const emptyFormHtml = document.getElementById('empty-form').innerHTML;
-                const newRowHtml = emptyFormHtml.replace(/__prefix__/g, formNum);
-                const newRow = document.createElement('div');
-                newRow.innerHTML = newRowHtml;
-                container.appendChild(newRow.firstElementChild);
+                const rawHtml = emptyFormDiv.innerHTML.replace(/__prefix__/g, formNum);
+
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = rawHtml.trim();
+                const newRow = tempDiv.firstElementChild;
+
+                container.appendChild(newRow);
                 totalForms.value = formNum + 1;
             };
         }
 
-        container.addEventListener('click', function(e) {
-            const btn = e.target.closest('.remove-item-btn');
-            if (!btn) return;
-            const row = btn.closest('.item-row');
-            const deleteCheckbox = row.querySelector('input[type="checkbox"][name$="-
+        // Delegacja zdarzeń usuwania na kontenerze
+        if (container) {
+            container.onclick = function(e) {
+                const btn = e.target.closest('.remove-item-btn');
+                if (!btn) return;
+
+                const row = btn.closest('.item-row');
+                const deleteCheckbox = row.querySelector('input[name$="-DELETE"]');
+
+                if (deleteCheckbox && row.querySelector('input[name$="-id"]')?.value) {
+                    // Istniejący w bazie - zaznacz i ukryj
+                    deleteCheckbox.checked = true;
+                    row.classList.add('d-none');
+                } else {
+                    // Nowy wiersz - usuń z DOM i zmniejsz licznik (opcjonalnie)
+                    row.remove();
+                    // Nie zawsze zmniejszamy totalForms, aby nie psuć indeksów,
+                    // ale Django zazwyczaj radzi sobie z lukami w numeracji.
+                }
+            };
+        }
+    })();
+</script>

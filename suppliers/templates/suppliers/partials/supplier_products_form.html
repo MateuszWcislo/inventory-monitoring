@@ -1,0 +1,39 @@
+<div class="modal-header bg-primary text-white">
+    <h5 class="modal-title">Asortyment: {{ supplier.name }}</h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+</div>
+<form hx-post="{% url 'supplier_edit_products' supplier.id %}" hx-target="#modal-content">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="input-group mb-3">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" id="pSearch" class="form-control" placeholder="Szukaj produktu..." onkeyup="filterP()">
+        </div>
+
+        <div id="pList" class="list-group" style="max-height: 400px; overflow-y: auto;">
+            {% for p in all_products %}
+                <label class="list-group-item d-flex gap-2 cursor-pointer p-item">
+                    <input class="form-check-input" type="checkbox" name="products" value="{{ p.id }}"
+                           {% if p.id in current_product_ids %}checked{% endif %}>
+                    <span class="p-name">{{ p.name }}</span>
+                </label>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-light"
+                hx-get="{% url 'supplier_preview' supplier.id %}"
+                hx-target="#modal-content">Wróć</button>
+        <button type="submit" class="btn btn-success">Zaktualizuj listę</button>
+    </div>
+</form>
+
+<script>
+function filterP() {
+    let val = document.getElementById('pSearch').value.toLowerCase();
+    document.querySelectorAll('.p-item').forEach(item => {
+        let name = item.querySelector('.p-name').textContent.toLowerCase();
+        item.style.display = name.includes(val) ? "" : "none";
+    });
+}
+</script>
