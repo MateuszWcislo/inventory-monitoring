@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-people me-2"></i>Zespół: {{ request.user.tenant.name }}</h2>
+        <a href="{% url 'user_create' %}" class="btn btn-success">
+            <i class="bi bi-person-plus me-2"></i>Dodaj pracownika
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+    <div class="table-responsive"
+         id="user-table-container"
+         hx-get="{% url 'user_list' %}"
+         hx-trigger="usersChanged from:body"
+         hx-target="#user-table-container"
+         hx-select="#user-table-container">
+
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Użytkownik</th>
+                    <th>Email</th>
+                    <th>Rola</th>
+                    <th>Status</th>
+                    <th class="text-end">Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr class="{% if not u.is_active %}table-light opacity-75{% endif %}">
+                    <td>
+                        <div class="fw-bold">{{ u.username }}</div>
+                        <small class="text-muted">{{ u.get_full_name }}</small>
+                    </td>
+                    <td>{{ u.email }}</td>
+                    <td><span class="badge bg-secondary">{{ u.get_role_display }}</span></td>
+                    <td>
+                        {% if u.is_active %}
+                            <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                <i class="bi bi-check-circle me-1"></i>Aktywny
+                            </span>
+                        {% else %}
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                <i class="bi bi-x-circle me-1"></i>Nieaktywny
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                       <button class="btn btn-sm btn-outline-primary shadow-sm"
+        hx-get="{% url 'user_edit' u.id %}"
+        hx-target="#modal-content"
+        hx-swap="innerHTML"
+        hx-select=".modal-header, form"
+        data-bs-toggle="modal"
+        data-bs-target="#productModal">
+    <i class="bi bi-gear me-1"></i> Zarządzaj
+</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

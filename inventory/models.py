@@ -1,6 +1,7 @@
 from django.db import models
 import uuid
 from suppliers.models import Supplier
+from django.conf import settings
 
 class Product(models.Model):
     name = models.CharField(max_length=200, unique=True, verbose_name="Nazwa produktu", null=False, blank=False)
@@ -38,7 +39,7 @@ class ActivityLog(models.Model):
         ('STOCK_ADJ', 'Zmiana stanu'),
     )
 
-    user = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     product_name = models.CharField(max_length=255) # Przechowujemy nazwę, nawet jeśli produkt zostanie usunięty
     action_type = models.CharField(max_length=10, choices=ACTION_CHOICES)
     previous_stock = models.IntegerField(default=None,verbose_name="Poprzedni stan", null=True)

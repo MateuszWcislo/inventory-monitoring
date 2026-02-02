@@ -7,6 +7,7 @@ from .forms import OrderForm, OrderItemFormSet
 from django.urls import reverse
 import json
 from suppliers.models import Supplier
+from inventory.models import ActivityLog
 from django.db.models import Prefetch
 from django.views.decorators.http import require_http_methods
 
@@ -83,7 +84,7 @@ def order_edit(request, pk):
                 if old_status == 'OPEN' and updated_order.status == 'CLOSED':
                     # Wywołujemy aktualizację stanów TYLKO jeśli są produkty
                     if updated_order.items.exists():
-                        update_stock_on_closure(updated_order)
+                        update_stock_on_closure(request.user, updated_order)
 
             return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
 
@@ -127,14 +128,25 @@ def order_delete(request, pk):
     return render(request, 'orders/partials/confirm_delete_order.html', {'order': order})
 
 
-def update_stock_on_closure(order):
+def update_stock_on_closure(user,order):
     # Pobieramy pozycje bezpośrednio z bazy danych, omijając cache obiektu 'order'
     fresh_items = OrderItem.objects.filter(order=order)
 
     for item in fresh_items:
         product = item.product
+        old_stock = product.current_stock
         product.current_stock += item.quantity
         product.save()
+
+        desc = f"Zamknięcie zamówienia: {old_stock} -> {product.current_stock}."
+        ActivityLog.objects.create(
+            user=user,
+            product_name=product.name,
+            action_type='UPDATE',
+            previous_stock=old_stock,
+            current_stock=product.current_stock,
+            description=desc
+        )
 
 
 @login_required

@@ -1,12 +1,11 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 from django.core.paginator import Paginator
 from django.db.models import Q, F
 from django.db import transaction
 
 from orders.models import Order, OrderItem
-from suppliers.models import Supplier
 from .forms import ProductForm
 from .models import Product, ActivityLog
 
@@ -132,6 +131,8 @@ def toggle_favourite(request, pk):
 
 @login_required
 def activity_logs(request):
+    if not request.user.is_tenant_admin():
+        return HttpResponseForbidden("Tylko administrator może przeglądać logi.")
     logs_list = ActivityLog.objects.all().order_by('-timestamp')
     paginator = Paginator(logs_list, 50)
     page_number = request.GET.get('page')

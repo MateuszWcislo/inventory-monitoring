@@ -1,0 +1,25 @@
+<div class="modal-header bg-primary text-white">
+    <h5 class="modal-title"><i class="bi bi-person-gear me-2"></i>Edycja użytkownika: {{ user_to_edit.username }}</h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+</div>
+<form hx-post="{% url 'user_edit' user_to_edit.id %}" hx-target="#modal-content">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="row g-3">
+            <div class="col-md-6">{{ form.first_name.label_tag }}{{ form.first_name }}</div>
+            <div class="col-md-6">{{ form.last_name.label_tag }}{{ form.last_name }}</div>
+            <div class="col-12">{{ form.email.label_tag }}{{ form.email }}</div>
+            <div class="col-md-8">{{ form.role.label_tag }}{{ form.role }}</div>
+            <div class="col-md-4 d-flex align-items-end">
+                <div class="form-check form-switch mb-2">
+                    {{ form.is_active }}
+                    <label class="form-check-label" for="{{ form.is_active.id_for_label }}">Aktywny</label>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" class="btn btn-primary">Zapisz zmiany</button>
+    </div>
+</form>

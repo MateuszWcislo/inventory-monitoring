@@ -12,6 +12,7 @@
         .navbar-brand { font-weight: bold; color: #0d6efd !important; }
         /* Styl dla płynnego przejścia modala */
         .modal-content { border: none; border-radius: 12px; }
+        .tenant-badge { font-size: 0.75rem; vertical-align: middle; }
     </style>
 
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
@@ -22,27 +23,48 @@
             <a class="navbar-brand" href="/">Magazyn Pro</a>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'product_list' %}">Produkty</a>
+                   <li class="nav-item">
+                        <a class="nav-link" href="{% url 'product_list' %}">
+                            <i class="bi bi-box-seam me-1"></i>Produkty
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'supplier_list' %}">Dostawcy</a>
+                        <a class="nav-link" href="{% url 'supplier_list' %}">
+                            <i class="bi bi-truck me-1"></i>Dostawcy
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'order_list' %}">Zamówienia</a>
+                        <a class="nav-link" href="{% url 'order_list' %}">
+                            <i class="bi bi-cart-check me-1"></i>Zamówienia
+                        </a>
                     </li>
+
+                    {# Dynamiczny link do użytkowników i logów - tylko dla Admina #}
+                    {% if user.role == 'ADMIN' or user.is_superuser %}
                     <li class="nav-item">
-                        <a class="nav-link" href="#">Użytkownicy</a>
+                        <a class="nav-link text-info" href="{% url 'user_list' %}">
+                            <i class="bi bi-people me-1"></i>Użytkownicy
+                        </a>
                     </li>
+
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'activity_logs' %}">Logi</a>
+                        <a class="nav-link text-warning" href="{% url 'activity_logs' %}">
+                            <i class="bi bi-journal-text me-1"></i>Logi
+                        </a>
                     </li>
+                    {% endif %}
                 </ul>
-                <form action="{% url 'logout' %}" method="post" class="d-flex">
-                    {% csrf_token %}
-                    <span class="navbar-text me-3 text-light">Witaj, {{ user.username }}!</span>
-                    <button type="submit" class="btn btn-outline-danger btn-sm">Wyloguj</button>
-                </form>
+                <div class="d-flex align-items-center">
+                    <div class="text-light me-3 text-end">
+                        <small class="d-block text-muted" style="font-size: 0.7rem; text-transform: uppercase;">Firma</small>
+                        <span class="fw-bold">{{ user.tenant.name|default:"System" }}</span>
+                    </div>
+                    <form action="{% url 'logout' %}" method="post" class="d-flex border-start ps-3">
+                        {% csrf_token %}
+                        <span class="navbar-text me-3 text-light small">Witaj, <strong>{{ user.username }}</strong>!</span>
+                        <button type="submit" class="btn btn-outline-danger btn-sm">Wyloguj</button>
+                    </form>
+                </div>
             </div>
         </div>
     </nav>
@@ -66,48 +88,43 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // 1. Zamykanie modala po sygnale z Django (HX-Trigger)
+        // Włącz debugowanie HTMX w konsoli (F12)
+        // htmx.logAll();
+
         document.body.addEventListener('htmx:afterOnLoad', function (evt) {
-            if (evt.detail.xhr.getResponseHeader('HX-Trigger') === 'productChanged') {
+            const trigger = evt.detail.xhr.getResponseHeader('HX-Trigger');
+            console.log("Sygnał z serwera:", trigger); // Sprawdź to w F12
+
+            const closeTriggers = ['productChanged', 'suppliersChanged', 'ordersChanged', 'usersChanged'];
+
+            if (closeTriggers.includes(trigger)) {
                 const modalElement = document.getElementById('productModal');
                 const modalInstance = bootstrap.Modal.getInstance(modalElement);
                 if (modalInstance) {
                     modalInstance.hide();
                 }
+                // Sprzątanie po modalu
+                setTimeout(() => {
+                    document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = 'auto';
+                }, 100);
             }
         });
 
-        // 2. Resetowanie zawartości modala do spinnera po zamknięciu
-        // Zapobiega "miganiu" starego formularza przy nowym otwarciu
-        document.getElementById('productModal').addEventListener('hidden.bs.modal', function () {
-            document.getElementById('modal-content').innerHTML = `
-                <div class="modal-body text-center py-5">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Ładowanie...</span>
-                    </div>
-                </div>`;
-        });
-    </script>
-
-   <script>
-    document.body.addEventListener('htmx:afterOnLoad', function (evt) {
-        const trigger = evt.detail.xhr.getResponseHeader('HX-Trigger');
-
-        // Tablica sygnałów, które mają zamknąć modal 📋
-        const closeTriggers = ['productChanged', 'suppliersChanged', 'ordersChanged'];
-
-        if (closeTriggers.includes(trigger)) {
-            const modalElement = document.getElementById('productModal');
-            const modalInstance = bootstrap.Modal.getInstance(modalElement);
-            if (modalInstance) {
-                modalInstance.hide();
-            }
-            // Sprzątanie tła 🧹
-            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
-            document.body.classList.remove('modal-open');
-            document.body.style.overflow = 'auto';
+        // Resetowanie modala do spinnera
+        const productModal = document.getElementById('productModal');
+        if (productModal) {
+            productModal.addEventListener('hidden.bs.modal', function () {
+                document.getElementById('modal-content').innerHTML = `
+                    <div class="modal-body text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Ładowanie...</span>
+                        </div>
+                    </div>`;
+            });
         }
-    });
     </script>
+
 </body>
 </html>
