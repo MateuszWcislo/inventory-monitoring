@@ -1,6 +1,6 @@
 <div class="modal-header {% if order.status == 'CANCELLED' %}bg-danger{% elif order.status == 'CLOSED' %}bg-success{% else %}bg-primary{% endif %} text-white">
     <h5 class="modal-title">
-        <i class="bi bi-file-earmark-text me-2"></i>Podgląd zamówienia #{{ order.id }}
+        <i class="bi bi-file-earmark-text me-2"></i>Podgląd zamówienia #{{ order.number }}
     </h5>
     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
 </div>

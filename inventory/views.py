@@ -15,7 +15,7 @@ from .models import Product, ActivityLog
 @login_required
 def product_list(request):
     # Prefetch_related dla dostawców, aby uniknąć N+1
-    products = Product.objects.all().prefetch_related('suppliers').order_by('-is_favourite', 'name')
+    products = Product.objects.filter(tenant=request.user.tenant).prefetch_related('suppliers').order_by('-is_favourite', 'name')
 
     if request.headers.get('HX-Request'):
         return render(request, 'inventory/partials/product_table.html', {'products': products})
@@ -35,8 +35,16 @@ def product_create(request):
     if request.method == "POST":
         form = ProductForm(request.POST)
         if form.is_valid():
-            product = form.save()
+            product = form.save(commit=False)
+            # Tutaj dzieje się magia Multi-tenancy:
+            product.tenant = request.user.tenant
+            product.save()
+
+            # Zapisujemy też relacje Many-to-Many (np. dostawców)
+            form.save_m2m()
+
             ActivityLog.objects.create(
+                tenant=request.user.tenant,
                 user=request.user,
                 product_name=product.name,
                 action_type='CREATE',
@@ -52,7 +60,7 @@ def product_create(request):
 
 @login_required
 def product_edit(request, pk):
-    product = get_object_or_404(Product, pk=pk)
+    product = get_object_or_404(Product, pk=pk, tenant=request.user.tenant)
     if request.method == "POST":
         old_stock = product.current_stock
         form = ProductForm(request.POST, instance=product)
@@ -64,6 +72,7 @@ def product_edit(request, pk):
                 desc += f" Zmiana stanu: {old_stock} -> {product.current_stock}."
 
             ActivityLog.objects.create(
+                tenant=request.user.tenant,
                 user=request.user,
                 product_name=product.name,
                 action_type='UPDATE',
@@ -81,11 +90,12 @@ def product_edit(request, pk):
 
 @login_required
 def product_delete(request, pk):
-    product = get_object_or_404(Product, pk=pk)
+    product = get_object_or_404(Product, pk=pk, tenant=request.user.tenant)
     if request.method == "POST":
         product_name = product.name
         product.delete()
         ActivityLog.objects.create(
+            tenant=request.user.tenant,
             user=request.user,
             product_name=product_name,
             action_type='DELETE',
@@ -101,7 +111,7 @@ def product_delete(request, pk):
 
 @login_required
 def quick_update_stock(request, pk):
-    product = get_object_or_404(Product, pk=pk)
+    product = get_object_or_404(Product, pk=pk, tenant=request.user.tenant)
     if request.method == "POST":
         old_stock = product.current_stock
         new_stock_raw = request.POST.get('new_stock')
@@ -109,6 +119,7 @@ def quick_update_stock(request, pk):
             product.current_stock = int(new_stock_raw)
             product.save()
             ActivityLog.objects.create(
+                tenant=request.user.tenant,
                 user=request.user,
                 product_name=product.name,
                 action_type='UPDATE',
@@ -116,16 +127,16 @@ def quick_update_stock(request, pk):
                 current_stock=product.current_stock,
                 description=f"Szybka aktualizacja stanu: {product.name}. Zmiana: {old_stock} -> {product.current_stock}."
             )
-    products = Product.objects.all().prefetch_related('suppliers').order_by('-is_favourite', 'name')
+    products = Product.objects.filter(tenant=request.user.tenant).prefetch_related('suppliers').order_by('-is_favourite', 'name')
     return render(request, 'inventory/partials/product_table.html', {'products': products})
 
 
 @login_required
 def toggle_favourite(request, pk):
-    product = get_object_or_404(Product, pk=pk)
+    product = get_object_or_404(Product, pk=pk, tenant=request.user.tenant)
     product.is_favourite = not product.is_favourite
     product.save()
-    products = Product.objects.all().prefetch_related('suppliers').order_by('-is_favourite', 'name')
+    products = Product.objects.filter(tenant=request.user.tenant).prefetch_related('suppliers').order_by('-is_favourite', 'name')
     return render(request, 'inventory/partials/product_table.html', {'products': products})
 
 
@@ -133,7 +144,7 @@ def toggle_favourite(request, pk):
 def activity_logs(request):
     if not request.user.is_tenant_admin():
         return HttpResponseForbidden("Tylko administrator może przeglądać logi.")
-    logs_list = ActivityLog.objects.all().order_by('-timestamp')
+    logs_list = ActivityLog.objects.filter(tenant=request.user.tenant).order_by('-timestamp')
     paginator = Paginator(logs_list, 50)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -144,8 +155,8 @@ def activity_logs(request):
 
 @login_required
 def add_to_order_modal(request, pk):
-    product = get_object_or_404(Product, pk=pk)
-    product_suppliers = product.suppliers.all()
+    product = get_object_or_404(Product, pk=pk, tenant=request.user.tenant)
+    product_suppliers = product.suppliers.filter(tenant=request.user.tenant)
     open_orders = Order.objects.filter(
         status='OPEN',
         supplier__in=product_suppliers
@@ -161,16 +172,16 @@ def add_to_order_modal(request, pk):
 @login_required
 def add_to_order_save(request, pk):
     if request.method == "POST":
-        product = get_object_or_404(Product, pk=pk)
+        product = get_object_or_404(Product, pk=pk, tenant=request.user.tenant)
         order_id = request.POST.get('order_id')
         quantity = int(request.POST.get('quantity', 1))
 
         with transaction.atomic():
             if order_id.startswith("new_"):
                 supplier_id = order_id.split("_")[1]
-                order = Order.objects.create(supplier_id=supplier_id, status='OPEN')
+                order = Order.objects.create(supplier_id=supplier_id, status='OPEN', tenant=request.user.tenant)
             else:
-                order = get_object_or_404(Order, id=order_id)
+                order = get_object_or_404(Order, id=order_id, tenant=request.user.tenant)
 
             # Sumowanie ilości jeśli produkt już jest w zamówieniu
             item, created = OrderItem.objects.get_or_create(
@@ -226,9 +237,9 @@ def bulk_add_to_order_save(request):
         with transaction.atomic():
             if order_id.startswith("new_"):
                 supplier_id = order_id.split("_")[1]
-                order = Order.objects.create(supplier_id=supplier_id, status='OPEN')
+                order = Order.objects.create(supplier_id=supplier_id, status='OPEN', tenant=request.user.tenant)
             else:
-                order = get_object_or_404(Order, id=order_id)
+                order = get_object_or_404(Order, id=order_id, tenant=request.user.tenant)
 
             for p_id in product_ids:
                 # Sumowanie dla każdego produktu z listy masowej

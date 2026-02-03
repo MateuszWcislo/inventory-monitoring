@@ -21,7 +21,7 @@
                 <optgroup label="Istniejące otwarte zamówienia">
                     {% for o in open_orders %}
                         <option value="{{ o.id }}">
-                            #{{ o.id }} - {{ o.supplier.name }} (z dnia {{ o.created_at|date:"d.m" }})
+                            #{{ o.number }} - {{ o.supplier.name }} (z dnia {{ o.created_at|date:"d.m.Y H:i" }})
                         </option>
                     {% endfor %}
                 </optgroup>

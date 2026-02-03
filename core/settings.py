@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -23,10 +24,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-8udd^#3&&e2wqo63a1_0h&s=y9b3fb%3uc+gn&rehl*g36ay1h'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
 
-ALLOWED_HOSTS = ['tortoise.pythonanywhere.com']
 
+# Sprawdza, czy nazwa użytkownika PythonAnywhere jest w ścieżce
+if 'Tortoise' in str(os.path.abspath(__file__)):
+    DEBUG = False
+    ALLOWED_HOSTS = ['Tortoise.pythonanywhere.com']
+else:
+    DEBUG = True
+    ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -111,7 +117,9 @@ AUTH_USER_MODEL = 'users.User'
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+# LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'pl'
+USE_L10N = True
 
 TIME_ZONE = 'Europe/Warsaw'
 

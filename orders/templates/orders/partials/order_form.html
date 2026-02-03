@@ -1,7 +1,7 @@
 <div class="modal-header bg-light">
     <h5 class="modal-title">
         {% if order and order.id %}
-            Edytuj zamówienie <small class="text-muted">#{{ order.id|stringformat:".8s" }}</small>
+            Edytuj zamówienie <small class="text-muted">#{{ order.number|stringformat:".8s" }}</small>
         {% else %}
             Nowe zamówienie
         {% endif %}
@@ -9,26 +9,36 @@
     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
 </div>
 
+{# Używamy hx-include, aby mieć pewność, że supplier id leci zawsze w żądaniu #}
 <form {% if order and order.id %} hx-post="{% url 'order_edit' order.id %}" {% else %} hx-post="{% url 'order_create' %}" {% endif %}
-      hx-target="#modal-content">
+      hx-target="#modal-content"
+      id="order-form">
     {% csrf_token %}
     <div class="modal-body">
 
         <div class="row g-3 mb-3">
             <div class="{% if form.status %}col-md-7{% else %}col-12{% endif %}">
                 <label class="fw-bold small mb-1">Dostawca</label>
-                {% if formset.initial|length > 0 or order.id %}
+
+                {% if order.id or request.GET.refresh == "true" or form.instance.supplier or form.supplier.value %}
+                    {# 1. Pokazujemy zablokowany select tylko dla oka #}
                     <div class="input-group">
                         <span class="input-group-text bg-white py-1"><i class="bi bi-truck"></i></span>
-                        <select name="supplier" class="form-select bg-light" style="pointer-events: none;">
+                        <select class="form-select bg-light" disabled>
                             {% for s in form.fields.supplier.queryset %}
-                                {% if form.instance.supplier_id == s.id or request.GET.supplier == s.id|stringformat:"s" %}
-                                    <option value="{{ s.id }}" selected>{{ s.name }}</option>
-                                {% endif %}
+                                {# Sprawdzamy wartość w form.supplier.value lub instancji #}
+                                <option value="{{ s.id }}"
+                                    {% if form.supplier.value|stringformat:"s" == s.id|stringformat:"s" or form.instance.supplier_id == s.id %}selected{% endif %}>
+                                    {{ s.name }}
+                                </option>
                             {% endfor %}
                         </select>
                     </div>
+                    {# 2. UKRYTE POLE - To ono faktycznie zapisuje dostawcę w bazie #}
+                    <input type="hidden" name="supplier" value="{% if form.supplier.value %}{{ form.supplier.value }}{% elif form.instance.supplier_id %}{{ form.instance.supplier_id }}{% endif %}">
+
                 {% else %}
+                    {# Widok początkowy - wybór dostawcy #}
                     <select name="supplier" class="form-select"
                             hx-get="{% url 'order_create' %}"
                             hx-target="#modal-content"
@@ -36,15 +46,16 @@
                             hx-vals='{"refresh": "true"}'>
                         <option value="">-- Wybierz dostawcę --</option>
                         {% for s in form.fields.supplier.queryset %}
-                            <option value="{{ s.id }}" {% if form.instance.supplier_id == s.id or request.GET.supplier == s.id|stringformat:"s" %}selected{% endif %}>
-                                {{ s.name }}
-                            </option>
+                            <option value="{{ s.id }}">{{ s.name }}</option>
                         {% endfor %}
                     </select>
                 {% endif %}
+                {% if form.supplier.errors %}
+                    <div class="text-danger small">{{ form.supplier.errors }}</div>
+                {% endif %}
             </div>
 
-            {% if form.status %}
+            {% if form.fields.status %}
             <div class="col-md-5">
                 <label class="fw-bold small mb-1 text-primary">Status</label>
                 {{ form.status }}
@@ -68,7 +79,9 @@
 
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h6 class="mb-0"><i class="bi bi-box-seam me-2"></i>Produkty w zamówieniu</h6>
-            <button type="button" class="btn btn-sm btn-success {% if not request.GET.supplier and not form.instance.supplier_id %}disabled{% endif %}"
+            {# Przycisk odblokowany tylko gdy mamy dostawcę #}
+            <button type="button"
+                    class="btn btn-sm btn-success {% if not form.supplier.value and not form.instance.supplier_id %}disabled{% endif %}"
                     id="add-item-btn">
                 <i class="bi bi-plus-circle me-1"></i>Dodaj produkt
             </button>
@@ -78,33 +91,26 @@
 
         <div id="order-items-container">
            {% for f in formset %}
-                {# Wyświetlamy tylko produkty powiązane z dostawcą lub puste formy #}
-                {% if not f.instance.pk or f.instance.product in order.supplier.products.all %}
-                    <div class="row g-2 mb-2 align-items-end item-row border-bottom pb-2">
-                        {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+                <div class="row g-2 mb-2 align-items-end item-row border-bottom pb-2 {% if f.DELETE.value %}d-none{% endif %}">
+                    {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
 
-                        <div class="col-7">
-                            <label class="small text-muted d-block">Produkt</label>
-                            {{ f.product }}
-                        </div>
-                        <div class="col-3">
-                            <label class="small text-muted d-block">Ilość</label>
-                            {{ f.quantity }}
-                        </div>
-                        <div class="col-2 text-center pb-1">
-                            <div class="d-none">{{ f.DELETE }}</div>
-                            <button type="button" class="btn btn-outline-danger btn-sm remove-item-btn mt-3">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
+                    <div class="col-7">
+                        <label class="small text-muted d-block">Produkt</label>
+                        {{ f.product }}
+                        {% if f.product.errors %}<div class="text-danger small">{{ f.product.errors }}</div>{% endif %}
                     </div>
-                {% else %}
-                    {# Ukryte pola dla "nielegalnych" produktów, aby zachować ciągłość formsetu #}
-                    <div class="d-none">
-                        {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
-                        {{ f.product }} {{ f.quantity }} {{ f.DELETE }}
+                    <div class="col-3">
+                        <label class="small text-muted d-block">Ilość</label>
+                        {{ f.quantity }}
+                        {% if f.quantity.errors %}<div class="text-danger small">{{ f.quantity.errors }}</div>{% endif %}
                     </div>
-                {% endif %}
+                    <div class="col-2 text-center pb-1">
+                        <div class="d-none">{{ f.DELETE }}</div>
+                        <button type="button" class="btn btn-outline-danger btn-sm remove-item-btn mt-3">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
            {% endfor %}
         </div>
 
@@ -135,16 +141,16 @@
                 <button type="button"
                         class="btn btn-outline-danger"
                         hx-delete="{% url 'order_edit' order.id %}"
-                        hx-confirm="Czy na pewno chcesz anulować i trwale usunąć to zamówienie?"
+                        hx-confirm="Czy na pewno chcesz anulować to zamówienie?"
                         hx-target="#modal-content">
-                    <i class="bi bi-trash me-1"></i>Anuluj zamówienie
+                    <i class="bi bi-trash me-1"></i>Usuń
                 </button>
             {% endif %}
         </div>
         <div>
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Powrót</button>
             <button type="submit" class="btn btn-primary px-4"
-                    {% if not request.GET.supplier and not form.instance.supplier_id %}disabled{% endif %}>
+                    {% if not form.supplier.value and not form.instance.supplier_id %}disabled{% endif %}>
                 {% if order and order.id %} Zaktualizuj {% else %} Zapisz i stwórz {% endif %}
             </button>
         </div>
@@ -159,7 +165,6 @@
         const emptyFormDiv = document.getElementById('empty-form');
 
         if (addBtn && container && totalForms && emptyFormDiv) {
-            // Czyścimy ewentualne stare eventy (ważne przy HTMX)
             addBtn.onclick = function(e) {
                 e.preventDefault();
                 const formNum = parseInt(totalForms.value);
@@ -174,7 +179,6 @@
             };
         }
 
-        // Delegacja zdarzeń usuwania na kontenerze
         if (container) {
             container.onclick = function(e) {
                 const btn = e.target.closest('.remove-item-btn');
@@ -184,14 +188,11 @@
                 const deleteCheckbox = row.querySelector('input[name$="-DELETE"]');
 
                 if (deleteCheckbox && row.querySelector('input[name$="-id"]')?.value) {
-                    // Istniejący w bazie - zaznacz i ukryj
                     deleteCheckbox.checked = true;
                     row.classList.add('d-none');
                 } else {
-                    // Nowy wiersz - usuń z DOM i zmniejsz licznik (opcjonalnie)
                     row.remove();
-                    // Nie zawsze zmniejszamy totalForms, aby nie psuć indeksów,
-                    // ale Django zazwyczaj radzi sobie z lukami w numeracji.
+                    // Opcjonalnie: nie zmniejszamy TOTAL_FORMS, Django obsłuży luki
                 }
             };
         }

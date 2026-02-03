@@ -13,7 +13,7 @@ from django.views.decorators.http import require_http_methods
 
 @login_required
 def order_list(request):
-    orders = Order.objects.all().select_related('supplier').order_by('-status','-id')
+    orders = Order.objects.filter(tenant=request.user.tenant).select_related('supplier').order_by('-status','-number')
     if request.headers.get('HX-Request'):
         return render(request, 'orders/partials/order_table.html', {'orders': orders})
     return render(request, 'orders/order_list.html', {'orders': orders})
@@ -21,57 +21,67 @@ def order_list(request):
 
 @login_required
 def order_create(request):
-    # Sprawdzamy dostawcę w POST (przy zapisie) LUB w GET (przy zmianie w select)
     supplier_id = request.POST.get('supplier') or request.GET.get('supplier')
-
-    # Bezpieczne pobranie dostawcy (używamy filter, by uniknąć 404 przy braku wyboru)
-    supplier = Supplier.objects.filter(id=supplier_id).first() if supplier_id else None
+    supplier = Supplier.objects.filter(id=supplier_id, tenant=request.user.tenant).first() if supplier_id else None
 
     if request.method == "POST" and not request.GET.get('refresh'):
         form = OrderForm(request.POST)
-        formset = OrderItemFormSet(request.POST, form_kwargs={'supplier': supplier})
+        # KLUCZOWE: Musisz przekazać tenant i supplier również tutaj!
+        formset = OrderItemFormSet(
+            request.POST,
+            form_kwargs={'supplier': supplier, 'tenant': request.user.tenant}
+        )
 
         if form.is_valid() and formset.is_valid():
             with transaction.atomic():
                 order = form.save(commit=False)
+                order.tenant = request.user.tenant
                 order.status = 'OPEN'
                 order.save()
+
                 formset.instance = order
                 formset.save()
+
             return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
+
     else:
-        # Ten blok wykona się przy pierwszym wejściu ORAZ przy zmianie dostawcy przez HTMX
         form = OrderForm(initial={'supplier': supplier})
-        formset = OrderItemFormSet(form_kwargs={'supplier': supplier})
+        formset = OrderItemFormSet(
+            form_kwargs={'supplier': supplier, 'tenant': request.user.tenant}
+        )
 
     return render(request, 'orders/partials/order_form.html', {
         'form': form,
         'formset': formset,
-        'order': None
+        'supplier_id': str(supplier.id) if supplier else None,
     })
 
 
 @login_required
-@require_http_methods(["GET", "POST", "DELETE"])  # Pozwalamy na DELETE
+@require_http_methods(["GET", "POST", "DELETE"])
 def order_edit(request, pk):
-    order = get_object_or_404(Order, pk=pk)
+    order = get_object_or_404(Order, pk=pk, tenant=request.user.tenant)
 
-    # OBSŁUGA ANULOWANIA (USUWANIA)
     if request.method == "DELETE":
         order.delete()
-        # Zwracamy pusty response z triggerem do odświeżenia listy za modalem
         return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
 
+    # Jeśli zamówienie nie jest otwarte, pokazujemy tylko podgląd (szczegóły)
     if order.status != 'OPEN':
         return render(request, 'orders/partials/order_detail.html', {'order': order})
 
     if request.method == "POST":
+        # 1. PRZECHWYTUJEMY STATUS PRZED ZAPISZEM
         old_status = order.status
+
         form = OrderForm(request.POST, instance=order)
         formset = OrderItemFormSet(
             request.POST,
             instance=order,
-            form_kwargs={'supplier': order.supplier}
+            form_kwargs={
+                'supplier': order.supplier,
+                'tenant': request.user.tenant
+            }
         )
 
         if form.is_valid() and formset.is_valid():
@@ -79,23 +89,26 @@ def order_edit(request, pk):
                 updated_order = form.save()
                 formset.save()
 
-                # LOGIKA ZAMYKANIA:
-                # Sprawdzamy czy status zmienił się na CLOSED
+                # 2. LOGIKA ZAMYKANIA: Porównujemy stary status z nowym
                 if old_status == 'OPEN' and updated_order.status == 'CLOSED':
-                    # Wywołujemy aktualizację stanów TYLKO jeśli są produkty
                     if updated_order.items.exists():
                         update_stock_on_closure(request.user, updated_order)
 
             return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
 
-        # Jeśli walidacja nie przeszła, renderujemy formularz z błędami
         return render(request, 'orders/partials/order_form.html', {
             'form': form, 'formset': formset, 'order': order
         })
 
     # GET
     form = OrderForm(instance=order)
-    formset = OrderItemFormSet(instance=order, form_kwargs={'supplier': order.supplier})
+    formset = OrderItemFormSet(
+        instance=order,
+        form_kwargs={
+            'supplier': order.supplier,
+            'tenant': request.user.tenant  # <--- To naprawi puste linie w edycji
+        }
+    )
     return render(request, 'orders/partials/order_form.html', {
         'form': form, 'formset': formset, 'order': order
     })
@@ -103,25 +116,27 @@ def order_edit(request, pk):
 
 @login_required
 def order_preview(request, pk):
-    # Pobieramy zamówienie, by poznać dostawcę
-    order_instance = get_object_or_404(Order, pk=pk)
+    # 1. Pobieramy zamówienie (już tutaj sprawdzamy tenanta)
+    order_instance = get_object_or_404(Order, pk=pk, tenant=request.user.tenant)
 
-    # Tworzymy niestandardowy Prefetch, który filtruje pozycje po aktualnym asortymencie dostawcy
+    # 2. Prefetch: Wyciągamy tylko te pozycje, które należą do produktów
+    #    przypisanych do tego dostawcy ORAZ należą do firmy użytkownika.
     items_prefetch = Prefetch(
         'items',
         queryset=OrderItem.objects.filter(
-            product__in=order_instance.supplier.products.all()
+            product__in=order_instance.supplier.products.all(), # Twoja logika biznesowa
+            product__tenant=request.user.tenant                 # Twoje bezpieczeństwo
         ).select_related('product')
     )
 
-    # Pobieramy zamówienie ponownie z zastosowaniem filtra
-    order = Order.objects.prefetch_related(items_prefetch).get(pk=pk)
+    # 3. Odświeżamy obiekt z nałożonym prefetchem
+    order = Order.objects.prefetch_related(items_prefetch).get(pk=pk, tenant=request.user.tenant)
 
     return render(request, 'orders/partials/order_detail.html', {'order': order})
 
 @login_required
 def order_delete(request, pk):
-    order = get_object_or_404(Order, pk=pk)
+    order = get_object_or_404(Order, pk=pk, tenant=request.user.tenant)
     if request.method == "POST":
         order.delete()
         return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
@@ -140,6 +155,7 @@ def update_stock_on_closure(user,order):
 
         desc = f"Zamknięcie zamówienia: {old_stock} -> {product.current_stock}."
         ActivityLog.objects.create(
+            tenant=user.tenant,
             user=user,
             product_name=product.name,
             action_type='UPDATE',
@@ -151,19 +167,19 @@ def update_stock_on_closure(user,order):
 
 @login_required
 def order_copy(request, pk):
-    original_order = get_object_or_404(Order, id=pk)
-    original_id = original_order.id
+    original_order = get_object_or_404(Order, id=pk, tenant=request.user.tenant)
 
     with transaction.atomic():
-        # Tworzymy kopię
-        new_order = original_order
-        new_order.id = None
-        new_order.status = 'OPEN'
-        new_order.completed_at = None
-        new_order.save()
+        # Tworzymy zupełnie nowy obiekt na bazie danych starego
+        new_order = Order.objects.create(
+            tenant=request.user.tenant,
+            supplier=original_order.supplier,
+            status='OPEN'
+            # number nada się automatycznie dzięki naszej metodzie save()
+        )
 
-        # Kopiujemy pozycje
-        items_to_copy = OrderItem.objects.filter(order_id=original_id)
+        # Kopiujemy pozycje (OrderItem nie ma pola tenant, filtrujemy po order)
+        items_to_copy = OrderItem.objects.filter(order=original_order)
         for item in items_to_copy:
             OrderItem.objects.create(
                 order=new_order,
@@ -188,7 +204,7 @@ def order_copy(request, pk):
 
 def order_count(request):
     # Liczymy tylko zamówienia o statusie 'OPEN'
-    count = Order.objects.filter(status='OPEN').count()
+    count = Order.objects.filter(status='OPEN', tenant=request.user.tenant).count()
     return render(request, 'orders/partials/order_count.html', {'orders_count': count})
 
 
@@ -201,7 +217,7 @@ def order_bulk_delete(request):
         if order_ids:
             with transaction.atomic():
                 # Usuwamy wybrane zamówienia 🗑️
-                Order.objects.filter(id__in=order_ids).delete()
+                Order.objects.filter(id__in=order_ids, tenant=request.user.tenant).delete()
 
             # Zwracamy pustą odpowiedź z wyzwalaczem dla HTMX 🔔
             return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})

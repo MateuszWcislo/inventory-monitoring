@@ -18,7 +18,7 @@
                 </th>
                 <th>Numer</th>
                 <th>Dostawca</th>
-                <th>Data</th>
+                <th>Data utworzenia</th>
                 <th>Status</th>
                 <th class="text-end">Akcje</th>
             </tr>
@@ -29,7 +29,7 @@
                 <td>
                     <input type="checkbox" name="order_ids" value="{{ o.id }}" class="form-check-input order-checkbox">
                 </td>
-                <td class="small text-muted">{{ o.id }}</td>
+                <td class="small text-muted">{{ o.number }}</td>
                 <td><span class="fw-bold">{{ o.supplier.name }}</span></td>
                 <td>{{ o.created_at|date:"d.m.Y H:i" }}</td>
                 <td>
