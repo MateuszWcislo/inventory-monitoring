@@ -30,7 +30,11 @@ SECRET_KEY = 'django-insecure-8udd^#3&&e2wqo63a1_0h&s=y9b3fb%3uc+gn&rehl*g36ay1h
 if 'Tortoise' in str(os.path.abspath(__file__)):
     DEBUG = False
     ALLOWED_HOSTS = ['Tortoise.pythonanywhere.com']
-    CSRF_TRUSTED_ORIGINS = ['https://Tortoise.pythonanywhere.com']
+    CSRF_TRUSTED_ORIGINS = ['https://Tortoise.pythonanywhere.com',
+                            'https://tortoise.pythonanywhere.com',
+                            'http://Tortoise.pythonanywhere.com',
+                            'http://tortoise.pythonanywhere.com',
+                            ]
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 else:
@@ -135,6 +139,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
