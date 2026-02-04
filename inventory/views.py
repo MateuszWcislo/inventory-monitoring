@@ -8,6 +8,7 @@ from django.db import transaction
 from orders.models import Order, OrderItem
 from .forms import ProductForm
 from .models import Product, ActivityLog
+import json
 
 
 # --- WIDOKI LISTY I STRONY GŁÓWNEJ ---
@@ -252,4 +253,14 @@ def bulk_add_to_order_save(request):
                     item.quantity += 1
                     item.save()
 
-        return HttpResponse(status=204, headers={'HX-Trigger': 'ordersChanged'})
+        # Tworzymy słownik sygnałów dla HTMX
+        trigger_data = {
+            "ordersChanged": None,  # To zamknie modal (dzięki Twojemu JS w base.html)
+            "clearProductChecks": None,  # To odznaczy checkboxy
+            "showToast": f"Dodano {len(product_ids)} produktów do zamówienia."  # Treść dymka
+        }
+
+        return HttpResponse(
+            status=204,
+            headers={'HX-Trigger': json.dumps(trigger_data)}
+        )

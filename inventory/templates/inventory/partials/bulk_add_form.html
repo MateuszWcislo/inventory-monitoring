@@ -24,7 +24,7 @@
                 {% if open_orders %}
                 <optgroup label="Istniejące otwarte zamówienia">
                     {% for o in open_orders %}
-                        <option value="{{ o.id }}">#{{ o.id }} - {{ o.supplier.name }}</option>
+                        <option value="{{ o.id }}">#{{ o.number }} - {{ o.supplier.name }}</option>
                     {% endfor %}
                 </optgroup>
                 {% endif %}

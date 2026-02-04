@@ -30,6 +30,9 @@ SECRET_KEY = 'django-insecure-8udd^#3&&e2wqo63a1_0h&s=y9b3fb%3uc+gn&rehl*g36ay1h
 if 'Tortoise' in str(os.path.abspath(__file__)):
     DEBUG = False
     ALLOWED_HOSTS = ['Tortoise.pythonanywhere.com']
+    CSRF_TRUSTED_ORIGINS = ['https://Tortoise.pythonanywhere.com']
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 else:
     DEBUG = True
     ALLOWED_HOSTS = ['*']
