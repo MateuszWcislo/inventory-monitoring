@@ -12,3 +12,8 @@ db.sqlite3
 
 # Pliki środowiskowe (z hasłami/kluczami)
 .env
+
+# Ignoruj wszystkie pliki migracji
+**/migrations/*.py
+# Ale nie ignoruj plików __init__.py (potrzebne, by folder był pakietem)
+!**/migrations/__init__.py
