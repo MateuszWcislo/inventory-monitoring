@@ -10,9 +10,13 @@
     <style>
         body { background-color: #f8f9fa; }
         .navbar-brand { font-weight: bold; color: #0d6efd !important; }
-        /* Styl dla płynnego przejścia modala */
         .modal-content { border: none; border-radius: 12px; }
         .tenant-badge { font-size: 0.75rem; vertical-align: middle; }
+        /* Poprawka dla mobilnego menu - odstęp od dołu */
+        @media (max-width: 991.98px) {
+            .navbar-nav { margin-bottom: 1rem; }
+            .user-info-section { border-top: 1px solid #495057; padding-top: 1rem; }
+        }
     </style>
 
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
@@ -21,6 +25,12 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
         <div class="container">
             <a class="navbar-brand" href="/">Magazyn Pro</a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                    aria-controls="navbarNav" aria-expanded="false" aria-label="Przełącz nawigację">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                    <li class="nav-item">
@@ -39,14 +49,12 @@
                         </a>
                     </li>
 
-                    {# Dynamiczny link do użytkowników i logów - tylko dla Admina #}
                     {% if user.role == 'ADMIN' or user.is_superuser %}
                     <li class="nav-item">
                         <a class="nav-link text-info" href="{% url 'user_list' %}">
                             <i class="bi bi-people me-1"></i>Użytkownicy
                         </a>
                     </li>
-
                     <li class="nav-item">
                         <a class="nav-link text-warning" href="{% url 'activity_logs' %}">
                             <i class="bi bi-journal-text me-1"></i>Logi
@@ -54,14 +62,16 @@
                     </li>
                     {% endif %}
                 </ul>
-                <div class="d-flex align-items-center">
-                    <div class="text-light me-3 text-end">
+
+                <div class="user-info-section d-flex flex-column flex-lg-row align-items-start align-items-lg-center">
+                    <div class="text-light me-lg-3 mb-3 mb-lg-0 text-start text-lg-end">
                         <small class="d-block text-muted" style="font-size: 0.7rem; text-transform: uppercase;">Firma</small>
                         <span class="fw-bold">{{ user.tenant.name|default:"System" }}</span>
                     </div>
-                    <form action="{% url 'logout' %}" method="post" class="d-flex border-start ps-3">
+
+                    <form action="{% url 'logout' %}" method="post" class="d-flex align-items-center border-lg-start ps-lg-3">
                         {% csrf_token %}
-                        <span class="navbar-text me-3 text-light small">Witaj, <strong>{{ user.username }}</strong>!</span>
+                        <span class="navbar-text me-3 text-light small d-none d-sm-inline">Witaj, <strong>{{ user.username }}</strong>!</span>
                         <button type="submit" class="btn btn-outline-danger btn-sm">Wyloguj</button>
                     </form>
                 </div>
@@ -97,23 +107,17 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // Włącz debugowanie HTMX w konsoli (F12)
-        // htmx.logAll();
-
         document.body.addEventListener('htmx:afterOnLoad', function (evt) {
-            // Pobieramy nagłówek HX-Trigger
             const triggerHeader = evt.detail.xhr.getResponseHeader('HX-Trigger');
             if (!triggerHeader) return;
 
             let triggers;
             try {
-                // Próbujemy sparsować jako JSON (dla wielu sygnałów) lub traktujemy jako tekst
                 triggers = JSON.parse(triggerHeader);
             } catch (e) {
                 triggers = { [triggerHeader]: null };
             }
 
-            // 1. Logika zamykania modala (rozszerzona o klucze z obiektu)
             const closeTriggers = ['productChanged', 'suppliersChanged', 'ordersChanged', 'usersChanged'];
             const shouldClose = Object.keys(triggers).some(t => closeTriggers.includes(t));
 
@@ -123,17 +127,13 @@
                 if (modalInstance) modalInstance.hide();
             }
 
-            // 2. Obsługa odznaczania checkboxów
             if (triggers.hasOwnProperty('clearProductChecks')) {
                 const checkboxes = document.querySelectorAll('input[name="product_ids"]');
                 checkboxes.forEach(cb => cb.checked = false);
-
-                // Jeśli masz checkbox "zaznacz wszystkie", go też odznacz
                 const masterCheck = document.getElementById('selectAll');
                 if (masterCheck) masterCheck.checked = false;
             }
 
-            // 3. Obsługa dymka (Toast)
             if (triggers.hasOwnProperty('showToast')) {
                 const toastEl = document.getElementById('actionToast');
                 const toastMsg = document.getElementById('toastMessage');
@@ -143,7 +143,6 @@
             }
         });
 
-        // Resetowanie modala do spinnera
         const productModal = document.getElementById('productModal');
         if (productModal) {
             productModal.addEventListener('hidden.bs.modal', function () {
@@ -156,6 +155,5 @@
             });
         }
     </script>
-
 </body>
 </html>
