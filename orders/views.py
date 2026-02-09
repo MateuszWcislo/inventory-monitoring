@@ -22,11 +22,12 @@ def order_list(request):
 @login_required
 def order_create(request):
     supplier_id = request.POST.get('supplier') or request.GET.get('supplier')
+    # Zawsze filtrujemy po tenancie przy pobieraniu dostawcy z parametrów
     supplier = Supplier.objects.filter(id=supplier_id, tenant=request.user.tenant).first() if supplier_id else None
 
     if request.method == "POST" and not request.GET.get('refresh'):
-        form = OrderForm(request.POST)
-        # KLUCZOWE: Musisz przekazać tenant i supplier również tutaj!
+        # KLUCZOWE: Dodajemy user=request.user, aby OrderForm przefiltrował dostawców
+        form = OrderForm(request.POST, user=request.user)
         formset = OrderItemFormSet(
             request.POST,
             form_kwargs={'supplier': supplier, 'tenant': request.user.tenant}
@@ -43,9 +44,9 @@ def order_create(request):
                 formset.save()
 
             return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
-
     else:
-        form = OrderForm(initial={'supplier': supplier})
+        # GET: Przekazujemy user do formularza
+        form = OrderForm(initial={'supplier': supplier}, user=request.user)
         formset = OrderItemFormSet(
             form_kwargs={'supplier': supplier, 'tenant': request.user.tenant}
         )
@@ -56,7 +57,6 @@ def order_create(request):
         'supplier_id': str(supplier.id) if supplier else None,
     })
 
-
 @login_required
 @require_http_methods(["GET", "POST", "DELETE"])
 def order_edit(request, pk):
@@ -66,15 +66,13 @@ def order_edit(request, pk):
         order.delete()
         return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
 
-    # Jeśli zamówienie nie jest otwarte, pokazujemy tylko podgląd (szczegóły)
     if order.status != 'OPEN':
         return render(request, 'orders/partials/order_detail.html', {'order': order})
 
     if request.method == "POST":
-        # 1. PRZECHWYTUJEMY STATUS PRZED ZAPISZEM
         old_status = order.status
-
-        form = OrderForm(request.POST, instance=order)
+        # Tutaj również przekazujemy user=request.user
+        form = OrderForm(request.POST, instance=order, user=request.user)
         formset = OrderItemFormSet(
             request.POST,
             instance=order,
@@ -89,30 +87,25 @@ def order_edit(request, pk):
                 updated_order = form.save()
                 formset.save()
 
-                # 2. LOGIKA ZAMYKANIA: Porównujemy stary status z nowym
                 if old_status == 'OPEN' and updated_order.status == 'CLOSED':
                     if updated_order.items.exists():
                         update_stock_on_closure(request.user, updated_order)
 
             return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
+    else:
+        # GET: Edycja
+        form = OrderForm(instance=order, user=request.user)
+        formset = OrderItemFormSet(
+            instance=order,
+            form_kwargs={
+                'supplier': order.supplier,
+                'tenant': request.user.tenant
+            }
+        )
 
-        return render(request, 'orders/partials/order_form.html', {
-            'form': form, 'formset': formset, 'order': order
-        })
-
-    # GET
-    form = OrderForm(instance=order)
-    formset = OrderItemFormSet(
-        instance=order,
-        form_kwargs={
-            'supplier': order.supplier,
-            'tenant': request.user.tenant  # <--- To naprawi puste linie w edycji
-        }
-    )
     return render(request, 'orders/partials/order_form.html', {
         'form': form, 'formset': formset, 'order': order
     })
-
 
 @login_required
 def order_preview(request, pk):

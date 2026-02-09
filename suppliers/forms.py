@@ -21,10 +21,17 @@ class SupplierForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        # 1. Wyciągamy user zanim super() go "zje"
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        # Jeśli edytujemy istniejącego dostawcę, zaznaczamy jego produkty
-        if self.instance.pk:
-            self.fields['products'].initial = self.instance.products.all()
+
+        # 2. Filtrowanie (Kluczowe dla Multi-tenancy)
+        if user and 'products' in self.fields:
+            self.fields['products'].queryset = Product.objects.filter(tenant=user.tenant)
+
+        # Opcjonalnie: dodanie klasy bootstrapowej do checkboxów, jeśli nie masz tego w Meta
+        if 'products' in self.fields:
+            self.fields['products'].help_text = "Produkty przypisane do tego dostawcy."
 
     def save(self, commit=True):
         supplier = super().save(commit=commit)

@@ -1,5 +1,6 @@
 from django import forms
 from .models import Product
+from suppliers.models import Supplier
 
 class ProductForm(forms.ModelForm):
     class Meta:
@@ -19,8 +20,12 @@ class ProductForm(forms.ModelForm):
             'suppliers': forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
         }
 
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            # Dodatkowa klasa dla kontenera checkboxów (opcjonalnie),
-            # aby nie były zbite ciasno obok siebie.
-            self.fields['suppliers'].help_text = "Zaznacz wszystkich dostawców, od których możesz zamawiać ten produkt."
+    def __init__(self, *args, **kwargs):
+        # Wyciągamy 'user', którego przekazujemy w widoku
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
+        if user:
+            self.fields['suppliers'].queryset = Supplier.objects.filter(tenant=user.tenant)
+
+        self.fields['suppliers'].help_text = "Zaznacz wszystkich dostawców, od których możesz zamawiać ten produkt."

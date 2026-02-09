@@ -1,9 +1,12 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
+from django.db import transaction
 from .models import Supplier
 from .forms import SupplierForm
 from inventory.models import Product
+import json
+
 
 @login_required
 def supplier_list(request):
@@ -16,38 +19,35 @@ def supplier_list(request):
 @login_required
 def supplier_create(request):
     if request.method == "POST":
-        form = SupplierForm(request.POST)
+        form = SupplierForm(request.POST, user=request.user)
         if form.is_valid():
-            # 1. Tworzymy obiekt dostawcy, ale nie zapisujemy jeszcze w bazie
-            supplier = form.save(commit=False)
-            supplier.tenant = request.user.tenant
-            # 2. Teraz zapisujemy dostawcę, żeby dostał ID
-            supplier.save()
-
-            # 3. RĘCZNE zapisanie produktów (relacja M2M od strony Product)
-            # Pobieramy ID produktów z wysłanego formularza
-            product_ids = request.POST.getlist('products')
-            if product_ids:
-                # Filtrujemy produkty po tenancie (bezpieczeństwo!)
-                products = Product.objects.filter(id__in=product_ids, tenant=request.user.tenant)
-                # Używamy related_name 'products' z modelu Product
-                supplier.products.set(products)
+            with transaction.atomic():
+                supplier = form.save(commit=False)
+                supplier.tenant = request.user.tenant
+                supplier.save()
+                # Ponieważ w forms.py przefiltrowaliśmy queryset w __init__,
+                # save_m2m() jest bezpieczne i automatycznie obsłuży produkty.
+                form.save_m2m()
 
             return HttpResponse("", headers={'HX-Trigger': 'suppliersChanged'})
     else:
-        form = SupplierForm()
+        form = SupplierForm(user=request.user)
     return render(request, 'suppliers/partials/supplier_form.html', {'form': form})
+
 
 @login_required
 def supplier_edit(request, pk):
     supplier = get_object_or_404(Supplier, pk=pk, tenant=request.user.tenant)
     if request.method == "POST":
-        form = SupplierForm(request.POST, instance=supplier)
+        form = SupplierForm(request.POST, instance=supplier, user=request.user)
         if form.is_valid():
+            # Przy edycji instancja ma już przypisany tenant, więc form.save() wystarczy
             form.save()
+            # save_m2m() nie jest potrzebne, jeśli robisz zwykłe form.save() bez commit=False,
+            # ale warto o nim pamiętać przy bardziej złożonych operacjach.
             return HttpResponse("", headers={'HX-Trigger': 'suppliersChanged'})
     else:
-        form = SupplierForm(instance=supplier)
+        form = SupplierForm(instance=supplier, user=request.user)
     return render(request, 'suppliers/partials/supplier_form.html', {'form': form, 'supplier': supplier})
 
 
@@ -62,8 +62,12 @@ def supplier_delete(request, pk):
 
 @login_required
 def supplier_preview(request, pk):
-    # Używamy zdefiniowanego przez Ciebie related_name='products'
-    supplier = get_object_or_404(Supplier.objects.prefetch_related('products'), pk=pk, tenant=request.user.tenant)
+    # Optymalizacja: pobieramy od razu produkty, żeby nie robić osobnych zapytań w pętli
+    supplier = get_object_or_404(
+        Supplier.objects.prefetch_related('products'),
+        pk=pk,
+        tenant=request.user.tenant
+    )
     return render(request, 'suppliers/partials/supplier_detail.html', {'supplier': supplier})
 
 
@@ -73,12 +77,15 @@ def supplier_edit_products(request, pk):
 
     if request.method == "POST":
         product_ids = request.POST.getlist('products')
-        # Filtrujemy produkty po TENANCIE, żeby nie przypisać cudzych towarów
+        # Bardzo dobra praktyka z filtrowaniem po tenancie!
         valid_products = Product.objects.filter(id__in=product_ids, tenant=request.user.tenant)
         supplier.products.set(valid_products)
-        return render(request, 'suppliers/partials/supplier_detail.html', {'supplier': supplier})
 
-    # Tutaj też MUSI być filtracja
+        # Opcjonalnie: możemy też wywołać odświeżenie listy głównej
+        response = render(request, 'suppliers/partials/supplier_detail.html', {'supplier': supplier})
+        response['HX-Trigger'] = 'suppliersChanged'
+        return response
+
     all_products = Product.objects.filter(tenant=request.user.tenant).order_by('name')
     current_product_ids = supplier.products.values_list('id', flat=True)
 

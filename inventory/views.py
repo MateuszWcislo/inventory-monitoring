@@ -34,7 +34,7 @@ def home_redirect(request):
 @login_required
 def product_create(request):
     if request.method == "POST":
-        form = ProductForm(request.POST)
+        form = ProductForm(request.POST, user=request.user)
         if form.is_valid():
             product = form.save(commit=False)
             # Tutaj dzieje się magia Multi-tenancy:
@@ -55,7 +55,7 @@ def product_create(request):
             response['HX-Trigger'] = 'productChanged'
             return response
     else:
-        form = ProductForm()
+        form = ProductForm(user=request.user)
     return render(request, 'inventory/partials/product_form.html', {'form': form})
 
 
@@ -64,7 +64,7 @@ def product_edit(request, pk):
     product = get_object_or_404(Product, pk=pk, tenant=request.user.tenant)
     if request.method == "POST":
         old_stock = product.current_stock
-        form = ProductForm(request.POST, instance=product)
+        form = ProductForm(request.POST, instance=product, user=request.user)
         if form.is_valid():
             product = form.save()
 
@@ -85,7 +85,7 @@ def product_edit(request, pk):
             response['HX-Trigger'] = 'productChanged'
             return response
     else:
-        form = ProductForm(instance=product)
+        form = ProductForm(instance=product, user=request.user)
     return render(request, 'inventory/partials/product_form.html', {'form': form, 'product': product})
 
 
