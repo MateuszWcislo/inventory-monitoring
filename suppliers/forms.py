@@ -3,11 +3,11 @@ from .models import Supplier
 from inventory.models import Product
 
 class SupplierForm(forms.ModelForm):
-    products = forms.ModelMultipleChoiceField(
-        queryset=Product.objects.all(),
+    products_selection = forms.ModelMultipleChoiceField(
+        queryset=Product.objects.none(),
         required=False,
         widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
-        label="Asortyment produktów"
+        label="Przypisane produkty"
     )
 
     class Meta:
@@ -21,21 +21,15 @@ class SupplierForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
-        # 1. Wyciągamy user zanim super() go "zje"
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
-        # 2. Filtrowanie (Kluczowe dla Multi-tenancy)
-        if user and 'products' in self.fields:
-            self.fields['products'].queryset = Product.objects.filter(tenant=user.tenant)
+        if user:
+            # Filtrujemy listę wszystkich produktów firmy
+            qs = Product.objects.filter(tenant=user.tenant)
+            self.fields['products_selection'].queryset = qs
 
-        # Opcjonalnie: dodanie klasy bootstrapowej do checkboxów, jeśli nie masz tego w Meta
-        if 'products' in self.fields:
-            self.fields['products'].help_text = "Produkty przypisane do tego dostawcy."
-
-    def save(self, commit=True):
-        supplier = super().save(commit=commit)
-        if commit:
-            # Zapisujemy relację ManyToMany
-            supplier.products.set(self.cleaned_data['products'])
-        return supplier
+            # Jeśli edytujemy dostawcę, zaznaczamy te produkty, które już go mają
+            if self.instance and self.instance.pk:
+                # Używamy related_name='products' z Twojego modelu Product
+                self.initial['products_selection'] = self.instance.products.all()

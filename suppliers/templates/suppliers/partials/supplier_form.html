@@ -27,7 +27,7 @@
         <div class="mb-3">
             <label class="fw-bold">Przypisz produkty do tego dostawcy:</label>
             <div class="border rounded p-3" style="max-height: 200px; overflow-y: auto; background-color: #f8f9fa;">
-                {% for checkbox in form.products %}
+                {% for checkbox in form.products_selection %}
                     <div class="form-check">
                         {{ checkbox.tag }}
                         <label class="form-check-label">{{ checkbox.choice_label }}</label>
