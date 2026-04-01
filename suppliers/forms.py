@@ -3,6 +3,7 @@ from .models import Supplier
 from inventory.models import Product
 
 class SupplierForm(forms.ModelForm):
+
     products_selection = forms.ModelMultipleChoiceField(
         queryset=Product.objects.none(),
         required=False,
