@@ -18,34 +18,26 @@ class ProductForm(forms.ModelForm):
 SupplierFormSet = inlineformset_factory(
     Product,
     ProductSupplier,
-    fields=('supplier', 'supplier_sku'),
-    extra=0,            # Zaczynamy od 0, bo mamy przycisk "Dodaj"
+    fields=('supplier', 'supplier_sku', 'tenant'), # Dodaj tenant
+    extra=0,
     can_delete=True,
     widgets={
         'supplier': forms.Select(attrs={'class': 'form-select'}),
-        'supplier_sku': forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Opcjonalne SKU'
-        }),
+        'supplier_sku': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'SKU'}),
+        'tenant': forms.HiddenInput(), # Ukryj pole
     }
 )
-
-# Formset dla partii
+#  Formset dla cen i stanu
 BatchFormSet = inlineformset_factory(
     Product,
     ProductBatch,
-    fields=('current_stock', 'net_price', 'gross_price'),
+    fields=('current_stock', 'net_price', 'gross_price', 'tenant'), # Dodaj tenant
     extra=0,
     can_delete=True,
     widgets={
         'current_stock': forms.NumberInput(attrs={'class': 'form-control form-control-sm'}),
-        'net_price': forms.NumberInput(attrs={
-            'class': 'form-control form-control-sm net-price',
-            'step': '0.01'
-        }),
-        'gross_price': forms.NumberInput(attrs={
-            'class': 'form-control form-control-sm gross-price',
-            'step': '0.01'
-        }),
+        'net_price': forms.NumberInput(attrs={'class': 'form-control form-control-sm net-price', 'step': '0.01'}),
+        'gross_price': forms.NumberInput(attrs={'class': 'form-control form-control-sm gross-price', 'step': '0.01'}),
+        'tenant': forms.HiddenInput(), # Ukryj pole
     }
 )

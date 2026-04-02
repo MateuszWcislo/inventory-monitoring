@@ -111,6 +111,10 @@ def product_create(request):
             batch_formset.save_m2m()
 
             return HttpResponse(status=204, headers={'HX-Trigger': 'productChanged'})
+        else:
+            print("BŁĘDY FORMULARZA:", form.errors)
+            print("BŁĘDY DOSTAWCÓW:", supp_formset.errors)  # To pokaże "This field is required" dla tenanta
+            print("BŁĘDY PARTII:", batch_formset.errors)
     else:
         form = ProductForm()
         supp_formset = SupplierFormSet(prefix='suppliers')
@@ -312,22 +316,25 @@ def bulk_add_to_order_modal(request):
         'product_ids': ",".join(map(str, product_ids))
     })
 
-
+@login_required
 def add_supplier_row(request):
-    """Zwraca pusty wiersz dostawcy do formsetu."""
-    product = Product() # atrapa dla formsetu
-    formset = SupplierFormSet(instance=product, prefix='suppliers')
-    # Używamy .empty_form, który Django przygotowało właśnie do tego celu
+    # Tworzymy formę z domyślnym tenantem
+    formset = SupplierFormSet(queryset=ProductSupplier.objects.none(), prefix='suppliers')
+    empty_form = formset.empty_form
+    empty_form.fields['tenant'].initial = request.user.tenant  # Ustawienie tenanta
+
     return render(request, 'inventory/partials/formset_row.html', {
-        'form': formset.empty_form,
+        'form': empty_form,
         'prefix': 'suppliers'
     })
 
+@login_required
 def add_batch_row(request):
-    """Zwraca pusty wiersz partii do formsetu."""
-    product = Product()
-    formset = BatchFormSet(instance=product, prefix='batches')
+    formset = BatchFormSet(queryset=ProductBatch.objects.none(), prefix='batches')
+    empty_form = formset.empty_form
+    empty_form.fields['tenant'].initial = request.user.tenant  # Ustawienie tenanta
+
     return render(request, 'inventory/partials/formset_row.html', {
-        'form': formset.empty_form,
+        'form': empty_form,
         'prefix': 'batches'
     })
