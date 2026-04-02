@@ -165,8 +165,12 @@ function calculatePrices(row) {
 
 // 4. Listenery HTMX i zdarzeń
 document.body.addEventListener('htmx:afterSwap', (e) => {
-    if (e.detail.target.id === 'supplier-formset-container') reindexFormset('suppliers');
-    if (e.detail.target.id === 'batch-formset-container') reindexFormset('batches');
+    if (e.detail.target.id === 'supplier-formset-container') {
+        reindexFormset('suppliers');
+    }
+    if (e.detail.target.id === 'batch-formset-container') {
+        reindexFormset('batches');
+    }
 });
 
 document.addEventListener('input', (e) => {
