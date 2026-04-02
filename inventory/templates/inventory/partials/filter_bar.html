@@ -1,0 +1,45 @@
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <form hx-get="{% url 'product_list' %}"
+              hx-target="#product-table-container"
+              hx-push-url="true"
+              class="row g-2">
+
+            <div class="col-md-5">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                    <input type="text" name="q" class="form-control border-start-0"
+                           placeholder="Szukaj (min. 3 znaki)..."
+                           value="{{ request.GET.q }}"
+                           hx-get="{% url 'product_list' %}"
+                           hx-trigger="keyup[target.value.length >= 3 || target.value.length == 0] changed delay:500ms"
+                           hx-target="#product-table-container"
+                           hx-include="closest form">
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <select name="supplier" class="form-select" hx-get="{% url 'product_list' %}" hx-trigger="change" hx-target="#product-table-container" hx-include="closest form">
+                    <option value="">Wszyscy dostawcy</option>
+                    {% for s in suppliers %}
+                        <option value="{{ s.id }}" {% if request.GET.supplier == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <select name="stock" class="form-select" hx-get="{% url 'product_list' %}" hx-trigger="change" hx-target="#product-table-container" hx-include="closest form">
+                    <option value="">Dowolny stan</option>
+                    <option value="low" {% if request.GET.stock == "low" %}selected{% endif %}>Poniżej progu</option>
+                    <option value="out" {% if request.GET.stock == "out" %}selected{% endif %}>Brak towaru</option>
+                </select>
+            </div>
+
+            <div class="col-md-1 d-flex align-items-center justify-content-center">
+                <a href="{% url 'product_list' %}" class="btn btn-light border w-100" title="Resetuj">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>

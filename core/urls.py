@@ -33,8 +33,8 @@ urlpatterns = [
     path('products/', include('inventory.urls')),
     # Suppliers
     path('suppliers/', include('suppliers.urls')),
-    # Orders
+    # # Orders
     path('orders/', include('orders.urls')),
-    # Users
+    # # Users
     path('users/', include('users.urls')),
 ]

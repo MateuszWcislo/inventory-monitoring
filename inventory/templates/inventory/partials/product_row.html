@@ -1,0 +1,106 @@
+<tr id="product-row-{{ p.id }}">
+    <td>
+        <input type="checkbox" name="product_ids" value="{{ p.id }}" class="product-checkbox form-check-input">
+    </td>
+
+    <td>
+        <div class="fw-bold">{{ p.name }}</div>
+        {% if p.description %}
+            <small class="text-muted d-block text-truncate" style="max-width: 250px;">{{ p.description }}</small>
+        {% endif %}
+    </td>
+
+    <td class="text-center" style="width: 200px;">
+        <div class="d-flex flex-column gap-1 align-items-center">
+            {% with active_batches=p.active_batches %}
+                {% for batch in active_batches|slice:":2" %}
+                    {% include 'inventory/partials/batch_badge.html' with batch=batch %}
+                {% endfor %}
+
+                {% if active_batches.count > 2 %}
+                    <div class="collapse" id="extra-batches-{{ p.id }}">
+                        {% for batch in active_batches|slice:"2:" %}
+                            {% include 'inventory/partials/batch_badge.html' with batch=batch %}
+                        {% endfor %}
+                    </div>
+                    <button class="btn btn-sm btn-link p-0 text-decoration-none small"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#extra-batches-{{ p.id }}">
+                        Pokaż resztę ({{ active_batches.count|add:"-2" }})
+                    </button>
+                {% endif %}
+
+                {% if not active_batches %}
+                    <span class="text-muted small">Brak towaru</span>
+                {% endif %}
+            {% endwith %}
+        </div>
+    </td>
+
+    <td class="text-center">
+        <span class="fs-5 fw-bold {% if p.total_stock < p.min_threshold %}text-danger{% endif %}">
+            {{ p.total_stock }}
+        </span>
+        <div class="text-muted small">min: {{ p.min_threshold }}</div>
+    </td>
+
+    <td class="text-center">
+        {% if p.total_stock < p.min_threshold %}
+            <span class="badge rounded-pill bg-danger">
+                <i class="bi bi-exclamation-triangle"></i> Zamów!
+            </span>
+        {% else %}
+            <span class="badge rounded-pill bg-success">
+                <i class="bi bi-check-circle"></i> OK
+            </span>
+        {% endif %}
+    </td>
+
+    <td class="text-start">
+        <div class="d-flex flex-column gap-1">
+            {% for mapping in p.supplier_mappings.all %}
+                <div class="badge bg-light text-dark border text-start fw-normal d-flex justify-content-between p-2" style="font-size: 0.7rem;">
+                    <span class="text-truncate me-2" title="{{ mapping.supplier.name }}">{{ mapping.supplier.name }}</span>
+                    <span class="fw-bold">{{ mapping.supplier_sku }}</span>
+                </div>
+            {% empty %}
+                <div class="text-center text-muted small">Brak powiązań</div>
+            {% endfor %}
+        </div>
+    </td>
+
+    <td class="text-end">
+        <div class="btn-group">
+            <button class="btn btn-sm btn-outline-secondary"
+                    hx-get="{% url 'product_edit' p.id %}"
+                    hx-target="#modal-content"
+                    data-bs-toggle="modal"
+                    data-bs-target="#productModal"
+                    title="Edytuj">
+                <i class="bi bi-pencil"></i>
+            </button>
+
+            <button class="btn btn-sm btn-outline-primary"
+                    hx-get="{% url 'add_to_order_modal' p.id %}"
+                    hx-target="#modal-content"
+                    data-bs-toggle="modal"
+                    data-bs-target="#productModal"
+                    title="Dodaj do zamówienia">
+                <i class="bi bi-cart-plus"></i>
+            </button>
+
+            <button class="btn btn-sm btn-outline-danger"
+                    hx-get="{% url 'product_delete' p.id %}"
+                    hx-target="#modal-content"
+                    data-bs-toggle="modal"
+                    data-bs-target="#productModal"
+                    title="Usuń produkt">
+                <i class="bi bi-trash"></i>
+            </button>
+        {% include 'inventory/partials/favourite_button.html' with product=p %}
+        </div>
+    </td>
+
+
+</tr>

@@ -1,0 +1,15 @@
+<div class="badge bg-light text-dark border d-flex justify-content-between align-items-center p-2 mb-1">
+    <span class="me-2 text-muted">{{ batch.net_price }} / {{ batch.gross_price }} zł:</span>
+
+    <form hx-post="{% url 'quick_update_batch_stock' batch.id %}"
+          hx-trigger="change from:find input"
+          hx-target="closest tr"
+          hx-swap="outerHTML"
+          class="m-0">
+        <input type="number"
+               name="new_stock"
+               value="{{ batch.current_stock }}"
+               class="form-control form-control-sm d-inline-block p-0 border-0 bg-transparent text-end fw-bold"
+               style="width: 40px;">
+    </form>
+</div>

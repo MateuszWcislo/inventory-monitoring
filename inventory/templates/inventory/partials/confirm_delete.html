@@ -1,15 +1,16 @@
 <div class="modal-header bg-danger text-white">
     <h5 class="modal-title">Potwierdź usunięcie</h5>
-    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
-<form hx-post="{% url 'product_delete' product.id %}" hx-target="#modal-content">
-    {% csrf_token %}
-    <div class="modal-body text-center py-4">
-        <p>Czy na pewno chcesz usunąć produkt: <strong>{{ product.name }}</strong>?</p>
-        <p class="text-danger small"><i class="bi bi-exclamation-triangle me-1"></i> Tej operacji nie można cofnąć.</p>
-    </div>
-    <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
-        <button type="submit" class="btn btn-danger">Usuń produkt</button>
-    </div>
-</form>
+<div class="modal-body text-center py-4">
+    <i class="bi bi-exclamation-triangle text-danger fs-1 mb-3"></i>
+    <p>Czy na pewno chcesz usunąć produkt: <br><strong>{{ product.name }}</strong>?</p>
+    <p class="text-muted small">Ta operacja usunie również wszystkie partie i powiązania SKU.</p>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+    <form hx-post="{% url 'product_delete' product.id %}" hx-target="#modal-content">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Usuń trwale</button>
+    </form>
+</div>

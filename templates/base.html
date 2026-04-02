@@ -32,20 +32,17 @@
                    <li class="nav-item">
                         <a class="nav-link" href="{% url 'product_list' %}"><i class="bi bi-box-seam me-1"></i>Produkty</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'supplier_list' %}"><i class="bi bi-truck me-1"></i>Dostawcy</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'order_list' %}"><i class="bi bi-cart-check me-1"></i>Zamówienia</a>
-                    </li>
-                    {% if user.role == 'ADMIN' or user.is_superuser %}
-                    <li class="nav-item">
-                        <a class="nav-link text-info" href="{% url 'user_list' %}"><i class="bi bi-people me-1"></i>Użytkownicy</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-warning" href="{% url 'activity_logs' %}"><i class="bi bi-journal-text me-1"></i>Logi</a>
-                    </li>
-                    {% endif %}
+<!--                    <li class="nav-item">-->
+<!--                        <a class="nav-link" href="{% url 'supplier_list' %}"><i class="bi bi-truck me-1"></i>Dostawcy</a>-->
+<!--                    </li>-->
+<!--                    <li class="nav-item">-->
+<!--                        <a class="nav-link" href="{% url 'order_list' %}"><i class="bi bi-cart-check me-1"></i>Zamówienia</a>-->
+<!--                    </li>-->
+<!--                    {% if user.role == 'ADMIN' or user.is_superuser %}-->
+<!--                    <li class="nav-item">-->
+<!--                        <a class="nav-link text-info" href="{% url 'user_list' %}"><i class="bi bi-people me-1"></i>Użytkownicy</a>-->
+<!--                    </li>-->
+<!--                    {% endif %}-->
                 </ul>
 
                 <div class="user-info-section d-flex flex-column flex-lg-row align-items-start align-items-lg-center">
@@ -155,6 +152,19 @@
                 forceCleanupModal();
             });
         }
+    </script>
+
+    <script>
+        // Słuchamy zdarzenia wysłanego przez serwer
+        document.body.addEventListener('productChanged', function() {
+            // Znajdź otwarty modal Bootstrapa
+            const modalElement = document.getElementById('productModal');
+            const modalInstance = bootstrap.Modal.getInstance(modalElement);
+
+            if (modalInstance) {
+                modalInstance.hide(); // Zamknij okno
+            }
+        });
     </script>
 </body>
 </html>
