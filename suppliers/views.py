@@ -4,8 +4,8 @@ from django.http import HttpResponse
 from django.db import transaction
 from .models import Supplier
 from .forms import SupplierForm
-from inventory.models import Product
-import json
+from inventory.models import Product, ProductSupplier
+
 
 @login_required
 def supplier_list(request):
@@ -21,38 +21,71 @@ def supplier_create(request):
         form = SupplierForm(request.POST, user=request.user)
         if form.is_valid():
             with transaction.atomic():
+                # 1. Zapisujemy podstawowe dane dostawcy
                 supplier = form.save(commit=False)
                 supplier.tenant = request.user.tenant
                 supplier.save()
 
-                # Zapisujemy produkty wybrane w formularzu
-                assigned_products = form.cleaned_data.get('products_selection')
-                # supplier.products to manager relacji wstecznej
-                supplier.products.set(assigned_products)
+                # 2. Pobieramy ID zaznaczonych produktów z checkboxów
+                selected_product_ids = request.POST.getlist('products_selection')
+
+                # 3. Tworzymy powiązania i wyciągamy SKU dla każdego zaznaczonego produktu
+                for p_id in selected_product_ids:
+                    # Szukamy w POST pola o nazwie sku_ID-PRODUKTU
+                    sku_value = request.POST.get(f'sku_{p_id}', '').strip()
+
+                    ProductSupplier.objects.create(
+                        tenant=request.user.tenant,
+                        supplier=supplier,
+                        product_id=p_id,
+                        supplier_sku=sku_value if sku_value else None
+                    )
 
             return HttpResponse("", headers={'HX-Trigger': 'suppliersChanged'})
     else:
         form = SupplierForm(user=request.user)
+
     return render(request, 'suppliers/partials/supplier_form.html', {'form': form})
 
 
 @login_required
 def supplier_edit(request, pk):
     supplier = get_object_or_404(Supplier, pk=pk, tenant=request.user.tenant)
+
     if request.method == "POST":
         form = SupplierForm(request.POST, instance=supplier, user=request.user)
         if form.is_valid():
             with transaction.atomic():
+                # 1. Aktualizujemy dane dostawcy
                 supplier = form.save()
-                # Ręcznie pobieramy dane z naszego pola 'products_selection'
-                new_products = form.cleaned_data['products_selection']
-                # Wykorzystujemy menedżera relacji wstecznej 'products'
-                supplier.products.set(new_products)
+
+                # 2. Pobieramy nowe zaznaczenie produktów
+                selected_product_ids = request.POST.getlist('products_selection')
+
+                # 3. Usuwamy stare powiązania, aby zapisać nowe (najbezpieczniejsza metoda "sync")
+                ProductSupplier.objects.filter(supplier=supplier).delete()
+
+                # 4. Tworzymy nowe powiązania z aktualnymi SKU
+                for p_id in selected_product_ids:
+                    sku_value = request.POST.get(f'sku_{p_id}', '').strip()
+
+                    ProductSupplier.objects.create(
+                        tenant=request.user.tenant,
+                        supplier=supplier,
+                        product_id=p_id,
+                        supplier_sku=sku_value if sku_value else None
+                    )
 
             return HttpResponse("", headers={'HX-Trigger': 'suppliersChanged'})
     else:
+        # Prefetchujemy mapowania, aby formularz w HTML mógł łatwo wyciągnąć istniejące SKU
+        supplier = Supplier.objects.prefetch_related('product_mappings').get(pk=pk)
         form = SupplierForm(instance=supplier, user=request.user)
-    return render(request, 'suppliers/partials/supplier_form.html', {'form': form, 'supplier': supplier})
+
+    return render(request, 'suppliers/partials/supplier_form.html', {
+        'form': form,
+        'supplier': supplier
+    })
 
 @login_required
 def supplier_delete(request, pk):
@@ -62,36 +95,48 @@ def supplier_delete(request, pk):
         return HttpResponse("", headers={'HX-Trigger': 'suppliersChanged'})
     return render(request, 'suppliers/partials/confirm_delete_supplier.html', {'supplier': supplier})
 
+
 @login_required
 def supplier_preview(request, pk):
-    # Prefetch_related('products') zapewnia, że produkty wyświetlą się w detalu
+    # Korzystamy z product_mappings (zdefiniowanego w inventory/models.py)
     supplier = get_object_or_404(
-        Supplier.objects.prefetch_related('products'),
+        Supplier.objects.prefetch_related('product_mappings__product'),
         pk=pk,
         tenant=request.user.tenant
     )
     return render(request, 'suppliers/partials/supplier_detail.html', {'supplier': supplier})
 
+
 @login_required
 def supplier_edit_products(request, pk):
-    """Szybka edycja produktów przypisanych do dostawcy"""
     supplier = get_object_or_404(Supplier, pk=pk, tenant=request.user.tenant)
 
     if request.method == "POST":
         product_ids = request.POST.getlist('products')
-        # Filtrujemy ID po tenancie, by nikt nie "wstrzyknął" cudzego produktu
-        valid_products = Product.objects.filter(id__in=product_ids, tenant=request.user.tenant)
-        supplier.products.set(valid_products)
+        with transaction.atomic():
+            # Usuwamy stare
+            ProductSupplier.objects.filter(supplier=supplier).delete()
+            # Dodajemy nowe
+            valid_products = Product.objects.filter(id__in=product_ids, tenant=request.user.tenant)
+            for prod in valid_products:
+                ProductSupplier.objects.create(
+                    tenant=request.user.tenant,
+                    product=prod,
+                    supplier=supplier
+                )
 
         response = render(request, 'suppliers/partials/supplier_detail.html', {'supplier': supplier})
         response['HX-Trigger'] = 'suppliersChanged'
         return response
 
     all_products = Product.objects.filter(tenant=request.user.tenant).order_by('name')
-    current_product_ids = supplier.products.values_list('id', flat=True)
+    # Ważne: pobieramy ID produktów, które już są przypisane
+    current_product_ids = ProductSupplier.objects.filter(
+        supplier=supplier
+    ).values_list('product_id', flat=True)
 
     return render(request, 'suppliers/partials/supplier_products_form.html', {
         'supplier': supplier,
         'all_products': all_products,
-        'current_product_ids': current_product_ids
+        'current_product_ids': list(current_product_ids)
     })

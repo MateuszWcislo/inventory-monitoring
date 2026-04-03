@@ -1,44 +1,156 @@
-<div class="modal-header">
+<div class="modal-header bg-light border-bottom shadow-sm">
     <h5 class="modal-title">
+        <i class="bi bi-person-vcard me-2 text-primary"></i>
         {% if supplier %} Edytuj: {{ supplier.name }} {% else %} Dodaj dostawcę {% endif %}
     </h5>
-    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
 
-<form {% if supplier %} hx-post="{% url 'supplier_edit' supplier.id %}" {% else %} hx-post="{% url 'supplier_create' %}" {% endif %} hx-target="#modal-content">
+<form {% if supplier %} hx-post="{% url 'supplier_edit' supplier.id %}" {% else %} hx-post="{% url 'supplier_create' %}" {% endif %}
+      hx-target="#modal-content"
+      class="needs-validation">
     {% csrf_token %}
-    <div class="modal-body">
+
+    <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
         <div class="mb-3">
-            <label class="form-label fw-bold">Nazwa dostawcy</label>
+            <label class="form-label fw-bold small text-uppercase">Nazwa dostawcy / Firmy</label>
             {{ form.name }}
+            {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors }}</div>{% endif %}
         </div>
-        <div class="mb-3">
-            <label class="form-label fw-bold">NIP</label>
-            {{ form.nip }}
+
+        <div class="row g-3">
+            <div class="col-md-6 mb-3">
+                <label class="form-label fw-bold small text-uppercase text-muted">NIP</label>
+                {{ form.nip }}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label fw-bold small text-uppercase text-muted">Telefon główny</label>
+                {{ form.phone }}
+            </div>
         </div>
+
         <div class="mb-3">
-            <label class="form-label fw-bold">Telefon</label>
-            {{ form.phone }}
-        </div>
-        <div class="mb-3">
-            <label class="form-label fw-bold">Adres</label>
+            <label class="form-label fw-bold small text-uppercase text-muted">Adres siedziby</label>
             {{ form.address }}
         </div>
-        <div class="mb-3">
-            <label class="fw-bold">Przypisz produkty do tego dostawcy:</label>
-            <div class="border rounded p-3" style="max-height: 200px; overflow-y: auto; background-color: #f8f9fa;">
-                {% for checkbox in form.products_selection %}
-                    <div class="form-check">
-                        {{ checkbox.tag }}
-                        <label class="form-check-label">{{ checkbox.choice_label }}</label>
-                    </div>
-                {% endfor %}
+
+        <hr class="my-4 text-muted">
+
+        <h6 class="mb-3 text-primary small fw-bold text-uppercase">
+            <i class="bi bi-person-badge me-2"></i>Osoba do kontaktu / Opiekun
+        </h6>
+
+        <div class="row g-3">
+            <div class="col-md-6 mb-3">
+                <label class="form-label fw-bold small text-uppercase">Imię i Nazwisko</label>
+                {{ form.representative }}
             </div>
-            <small class="text-muted">Możesz edytować tę listę również później w podglądzie dostawcy.</small>
+            <div class="col-md-6 mb-3">
+                <label class="form-label fw-bold small text-uppercase">E-mail do zamówień</label>
+                {{ form.email }}
+            </div>
+        </div>
+
+        <hr class="my-4 text-muted">
+
+        <div class="mb-2">
+            <label class="fw-bold mb-2 small text-uppercase text-primary">
+                <i class="bi bi-boxes me-2"></i>Przypisany asortyment i kody SKU
+            </label>
+
+            <div class="border rounded bg-white shadow-sm overflow-hidden">
+                <div class="table-responsive" style="max-height: 350px;">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light sticky-top" style="z-index: 10;">
+                            <tr>
+                                <th class="ps-3" style="width: 45px;"></th>
+                                <th>Produkt</th>
+                                <th style="width: 240px;">SKU u tego dostawcy</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for choice in form.fields.products_selection.queryset %}
+                            <tr class="product-row">
+                                <td class="ps-3 text-center">
+                                    {# Sprawdzamy czy ID produktu jest w aktualnych mapowaniach dostawcy #}
+                                    <input type="checkbox" name="products_selection" value="{{ choice.id }}"
+                                           id="product_{{ choice.id }}" class="form-check-input product-checkbox"
+                                           {% if supplier %}{% for m in supplier.product_mappings.all %}{% if m.product_id == choice.id %}checked{% endif %}{% endfor %}{% endif %}>
+                                </td>
+                                <td>
+                                    <label for="product_{{ choice.id }}" class="form-check-label fw-bold d-block py-1 cursor-pointer">
+                                        {{ choice.name }}
+                                    </label>
+                                </td>
+                                <td class="pe-3">
+                                    {# Szukamy zapisanego SKU dla tego konkretnego produktu #}
+                                    <input type="text" name="sku_{{ choice.id }}"
+                                           class="form-control form-control-sm sku-input"
+                                           placeholder="Opcjonalny kod SKU..."
+                                           value="{% if supplier %}{% for m in supplier.product_mappings.all %}{% if m.product_id == choice.id %}{{ m.supplier_sku|default:'' }}{% endif %}{% endfor %}{% endif %}">
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center py-5 text-muted">
+                                    <i class="bi bi-info-circle d-block mb-2 fs-4"></i>
+                                    Brak produktów w bazie dla Twojej firmy.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="form-text mt-2 small text-muted">
+                <i class="bi bi-lightbulb me-1 text-warning"></i>
+                Zaznacz produkty oferowane przez dostawcę. Możesz edytować kody SKU w dowolnym momencie.
+            </div>
         </div>
     </div>
-    <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
-        <button type="submit" class="btn btn-primary">Zapisz</button>
+
+    <div class="modal-footer bg-light border-top shadow-sm">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" class="btn btn-primary px-4 shadow-sm fw-bold">
+            <i class="bi bi-save me-2"></i>Zapisz dostawcę
+        </button>
     </div>
 </form>
+
+<style>
+    .cursor-pointer { cursor: pointer; }
+    .sticky-top { background-color: #f8f9fa !important; border-bottom: 2px solid #dee2e6; }
+    .product-row:hover { background-color: rgba(13, 110, 253, 0.03); }
+</style>
+
+<script>
+    /**
+     * Zarządzanie stanem pól SKU w zależności od checkboxa
+     */
+    function initProductFormLogic() {
+        const rows = document.querySelectorAll('.product-row');
+
+        rows.forEach(row => {
+            const cb = row.querySelector('.product-checkbox');
+            const input = row.querySelector('.sku-input');
+
+            const refreshState = () => {
+                if (cb.checked) {
+                    input.style.opacity = "1";
+                    input.style.pointerEvents = "auto";
+                    input.classList.remove('bg-light');
+                } else {
+                    input.style.opacity = "0.4";
+                    input.style.pointerEvents = "none";
+                    input.classList.add('bg-light');
+                }
+            };
+
+            cb.addEventListener('change', refreshState);
+            refreshState(); // Stan początkowy
+        });
+    }
+
+    // Wywołanie skryptu
+    initProductFormLogic();
+</script>

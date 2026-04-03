@@ -4,8 +4,10 @@
             <tr>
                 <th>Nazwa</th>
                 <th>NIP</th>
-                <th>Telefon</th>
                 <th>Adres</th>
+                <th>Opiekun</th>
+                <th>Telefon</th>
+                <th>E-mail</th>
                 <th class="text-end">Akcje</th>
             </tr>
         </thead>
@@ -14,8 +16,10 @@
             <tr>
                 <td class="fw-bold">{{ s.name }}</td>
                 <td>{{ s.nip|default_if_none:"—" }}</td>
-                <td>{{ s.phone|default_if_none:"—" }}</td>
                 <td class="small text-muted">{{ s.address|truncatechars:30|default_if_none:"—" }}</td>
+                <td>{{ s.representative|default_if_none:"—" }}</td>
+                <td>{{ s.phone|default_if_none:"—" }}</td>
+                <td>{{ s.email|default_if_none:"—" }}</td>
                 <td class="text-end">
                     <button class="btn btn-outline-info btn-sm"
                             hx-get="{% url 'supplier_preview' s.id %}"

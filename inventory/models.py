@@ -31,6 +31,9 @@ class Product(models.Model):
         """Zwraca partie z dodatnim stanem, od najstarszych (FIFO)."""
         return self.batches.filter(current_stock__gt=0).order_by('created_at')
 
+    def __str__(self):
+        return self.name
+
     class Meta:
         verbose_name = "Produkt"
         verbose_name_plural = "Produkty"
