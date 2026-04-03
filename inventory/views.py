@@ -77,44 +77,43 @@ def home_redirect(request):
 
 # --- CRUD PRODUKTU ---
 @login_required
-# inventory/views.py
-
 def product_create(request):
     if request.method == "POST":
         form = ProductForm(request.POST)
+        # Inicjalizujemy bez instance, bo produkt jeszcze nie istnieje
         supp_formset = SupplierFormSet(request.POST, prefix='suppliers')
         batch_formset = BatchFormSet(request.POST, prefix='batches')
 
         if form.is_valid() and supp_formset.is_valid() and batch_formset.is_valid():
-            # 1. Najpierw zapisujemy produkt, ale bez commit, by dodać tenant
+            # 1. Zapisujemy produkt
             product = form.save(commit=False)
             product.tenant = request.user.tenant
             product.save()
 
-            # 2. Powiązujemy formset dostawców z nowym produktem
+            # 2. Zapisujemy dostawców
+            # Ustawiamy instance ręcznie, żeby powiązać z nowym produktem
+            supp_formset.instance = product
             suppliers = supp_formset.save(commit=False)
-            for instance in suppliers:
-                instance.product = product  # Kluczowe powiązanie!
-                instance.tenant = request.user.tenant
-                instance.save()
-
-            # Ważne: jeśli używamy commit=False, musimy ręcznie obsłużyć usuwanie (jeśli dotyczy create)
+            for s in suppliers:
+                s.tenant = request.user.tenant
+                s.save()
+            # To ważne dla usuniętych wierszy:
             supp_formset.save_m2m()
 
-            # 3. Powiązujemy formset partii (batches) z nowym produktem
+            # 3. Zapisujemy partie
+            batch_formset.instance = product
             batches = batch_formset.save(commit=False)
-            for instance in batches:
-                instance.product = product  # Kluczowe powiązanie!
-                instance.tenant = request.user.tenant
-                instance.save()
-
+            for b in batches:
+                b.tenant = request.user.tenant
+                b.save()
             batch_formset.save_m2m()
 
             return HttpResponse(status=204, headers={'HX-Trigger': 'productChanged'})
         else:
-            print("BŁĘDY FORMULARZA:", form.errors)
-            print("BŁĘDY DOSTAWCÓW:", supp_formset.errors)  # To pokaże "This field is required" dla tenanta
-            print("BŁĘDY PARTII:", batch_formset.errors)
+            # Jeśli są błędy, wyświetlamy je w konsoli do debugowania
+            print("Błędy Formularza:", form.errors)
+            print("Błędy Dostawców:", supp_formset.errors)
+            print("Błędy Partii:", batch_formset.errors)
     else:
         form = ProductForm()
         supp_formset = SupplierFormSet(prefix='suppliers')
@@ -124,30 +123,58 @@ def product_create(request):
         'form': form,
         'supp_formset': supp_formset,
         'batch_formset': batch_formset,
-        'title': 'Dodaj nowy produkt'
+        'title': 'Dodaj produkt'
     })
 
 @login_required
 def product_edit(request, pk):
+    # Pobieramy produkt (upewniając się, że należy do tenanta)
     product = get_object_or_404(Product, pk=pk, tenant=request.user.tenant)
+
     if request.method == "POST":
         form = ProductForm(request.POST, instance=product)
         supp_formset = SupplierFormSet(request.POST, instance=product, prefix='suppliers')
         batch_formset = BatchFormSet(request.POST, instance=product, prefix='batches')
 
         if form.is_valid() and supp_formset.is_valid() and batch_formset.is_valid():
-            form.save()
-            # Zapisanie formsetów z wymuszeniem tenanta dla nowych wpisów
-            for fs in [supp_formset, batch_formset]:
-                instances = fs.save(commit=False)
-                for obj in instances:
-                    obj.tenant = request.user.tenant
-                    obj.save()
-                for obj in fs.deleted_objects:
-                    obj.delete()
+            # 1. Zapisujemy główny produkt
+            product = form.save()
+
+            # 2. Zapisujemy dostawców
+            # Najpierw zajmujemy się nowymi/zmienionymi obiektami
+            suppliers = supp_formset.save(commit=False)
+            for s in suppliers:
+                if not hasattr(s, 'tenant') or not s.tenant:
+                    s.tenant = request.user.tenant
+                s.save()
+
+            # Kluczowe: usuwamy obiekty zaznaczone do skasowania!
+            for obj in supp_formset.deleted_objects:
+                obj.delete()
+
+            # 3. Zapisujemy partie
+            batches = batch_formset.save(commit=False)
+            for b in batches:
+                if not hasattr(b, 'tenant') or not b.tenant:
+                    b.tenant = request.user.tenant
+                # b.product zostanie ustawione automatycznie dzięki instance=product w formsecie
+                b.save()
+
+            for obj in batch_formset.deleted_objects:
+                obj.delete()
+
+            # Opcjonalne: jeśli masz relacje ManyToMany, wywołaj save_m2m()
+            # supp_formset.save_m2m()
+            # batch_formset.save_m2m()
 
             return HttpResponse(status=204, headers={'HX-Trigger': 'productChanged'})
+        else:
+            # Debugowanie błędów w konsoli jeśli walidacja nie przejdzie
+            print("Błędy Formularza:", form.errors)
+            print("Błędy Dostawców:", supp_formset.errors)
+            print("Błędy Partii:", batch_formset.errors)
     else:
+        # GET: Dane ładują się automatycznie dzięki instance=product
         form = ProductForm(instance=product)
         supp_formset = SupplierFormSet(instance=product, prefix='suppliers')
         batch_formset = BatchFormSet(instance=product, prefix='batches')
@@ -316,25 +343,31 @@ def bulk_add_to_order_modal(request):
         'product_ids': ",".join(map(str, product_ids))
     })
 
-@login_required
+
 def add_supplier_row(request):
-    # Tworzymy formę z domyślnym tenantem
+    # Tworzymy formset - prefix musi zgadzać się z tym w widoku głównym
     formset = SupplierFormSet(queryset=ProductSupplier.objects.none(), prefix='suppliers')
-    empty_form = formset.empty_form
-    empty_form.fields['tenant'].initial = request.user.tenant  # Ustawienie tenanta
+    # Używamy empty_form zamiast forms[0] - to usuwa IndexError
+    form = formset.empty_form
+
+    # Przekazujemy tenant_id do początkowych danych formularza
+    if hasattr(request.user, 'tenant') and request.user.tenant:
+        form.initial['tenant'] = request.user.tenant.id
 
     return render(request, 'inventory/partials/formset_row.html', {
-        'form': empty_form,
+        'form': form,
         'prefix': 'suppliers'
     })
 
-@login_required
+
 def add_batch_row(request):
     formset = BatchFormSet(queryset=ProductBatch.objects.none(), prefix='batches')
-    empty_form = formset.empty_form
-    empty_form.fields['tenant'].initial = request.user.tenant  # Ustawienie tenanta
+    form = formset.empty_form
+
+    if hasattr(request.user, 'tenant') and request.user.tenant:
+        form.initial['tenant'] = request.user.tenant.id
 
     return render(request, 'inventory/partials/formset_row.html', {
-        'form': empty_form,
+        'form': form,
         'prefix': 'batches'
     })

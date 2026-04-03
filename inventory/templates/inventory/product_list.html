@@ -36,29 +36,56 @@
 </div>
 
 <script>
-    // Logika pokazywania/ukrywania paska Bulk
-    document.body.addEventListener('change', function(e) {
-        if (e.target.classList.contains('product-checkbox') || e.target.id === 'select-all-products') {
-            const checkboxes = document.querySelectorAll('.product-checkbox:checked');
-            const bulkBar = document.getElementById('bulk-actions');
-            const countSpan = document.getElementById('selected-count');
+    // Funkcja aktualizująca widoczność paska akcji zbiorczych
+    function updateBulkActionsBar() {
+        const checkedCount = document.querySelectorAll('.product-checkbox:checked').length;
+        const bulkBar = document.getElementById('bulk-actions');
+        const countSpan = document.getElementById('selected-count');
 
-            if (checkboxes.length > 0) {
+        if (bulkBar && countSpan) {
+            if (checkedCount > 0) {
                 bulkBar.classList.remove('d-none');
-                countSpan.innerText = checkboxes.length;
+                bulkBar.classList.add('d-flex'); // Bootstrap d-flex gryzie się z d-none
+                countSpan.innerText = checkedCount;
             } else {
                 bulkBar.classList.add('d-none');
+                bulkBar.classList.remove('d-flex');
             }
+        }
+    }
+
+    // 1. Obsługa zmian w checkboxach (używamy delegacji na body)
+    document.body.addEventListener('change', function(e) {
+        if (e.target.classList.contains('product-checkbox') || e.target.id === 'select-all-products') {
+            // Jeśli kliknięto "zaznacz wszystko", zsynchronizuj resztę
+            if (e.target.id === 'select-all-products') {
+                const checkboxes = document.querySelectorAll('.product-checkbox');
+                checkboxes.forEach(cb => cb.checked = e.target.checked);
+            }
+            updateBulkActionsBar();
         }
     });
 
-    // Obsługa "Zaznacz wszystko"
-    document.body.addEventListener('click', function(e) {
-        if (e.target.id === 'select-all-products') {
-            const checkboxes = document.querySelectorAll('.product-checkbox');
-            checkboxes.forEach(cb => cb.checked = e.target.checked);
-            e.target.dispatchEvent(new Event('change', { bubbles: true }));
+    // 2. KLUCZOWE: Reset po operacji HTMX (np. usunięciu)
+    // Słuchamy sygnału 'productChanged', który wysyłasz z views.py
+    document.body.addEventListener('productChanged', function() {
+        const bulkBar = document.getElementById('bulk-actions');
+        const selectAll = document.getElementById('select-all-products');
+
+        // Ukrywamy pasek
+        if (bulkBar) {
+            bulkBar.classList.add('d-none');
+            bulkBar.classList.remove('d-flex');
         }
+
+        // Resetujemy główny checkbox (jeśli istnieje po przeładowaniu tabeli)
+        if (selectAll) {
+            selectAll.checked = false;
+        }
+
+        // Resetujemy licznik w pamięci
+        const countSpan = document.getElementById('selected-count');
+        if (countSpan) countSpan.innerText = '0';
     });
 </script>
 {% endblock %}

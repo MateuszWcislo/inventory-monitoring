@@ -20,9 +20,11 @@
             <div class="text-danger tiny">{{ form.name.errors }}</div>
         </div>
         <div class="col-md-4">
-            <label class="form-label fw-bold small">Stawka VAT (%)</label>
-            <input type="number" name="vat_rate" id="id_vat_rate"
-                   value="{{ form.vat_rate.value|default:23 }}" class="form-control">
+            <label class="form-label">Stawka VAT (%)</label>
+            {{ form.vat_rate }}
+            {% if form.vat_rate.errors %}
+                <div class="text-danger small">{{ form.vat_rate.errors }}</div>
+            {% endif %}
         </div>
         <div class="col-12">
             <label class="form-label fw-bold small">Opis (opcjonalnie)</label>
@@ -44,15 +46,15 @@
 
     <div class="d-flex justify-content-between align-items-center mb-2">
         <h6 class="mb-0 text-primary fw-bold small text-uppercase"><i class="bi bi-truck me-2"></i>Dostawcy</h6>
-        <button type="button" class="btn btn-sm btn-outline-primary"
-                hx-get="{% url 'add_supplier_row' %}"
-                hx-target="#supplier-formset-container"
-                hx-swap="beforeend">
-            <i class="bi bi-plus-circle me-1"></i>Dodaj
-        </button>
+            <button type="button" class="btn btn-sm btn-outline-primary"
+                    hx-get="{% url 'add_supplier_row' %}"
+                    hx-target="#suppliers-formset-container"
+                    hx-swap="beforeend">
+                Dodaj dostawcę
+            </button>
     </div>
 
-    <div id="supplier-formset-container" class="bg-white p-3 rounded border mb-4 shadow-sm">
+    <div id="suppliers-formset-container" class="bg-white p-3 rounded border mb-4 shadow-sm">
         {{ supp_formset.management_form }}
         {% for s_form in supp_formset %}
             <div class="row g-2 mb-2 align-items-end border-bottom pb-2" data-formset-row="suppliers">
@@ -78,13 +80,13 @@
         <h6 class="text-primary mb-0 fw-bold small text-uppercase"><i class="bi bi-layers me-2"></i>Partie i Ceny</h6>
         <button type="button" class="btn btn-sm btn-outline-primary"
                 hx-get="{% url 'add_batch_row' %}"
-                hx-target="#batch-formset-container"
+                hx-target="#batches-formset-container"
                 hx-swap="beforeend">
             <i class="bi bi-plus-circle me-1"></i>Dodaj
         </button>
     </div>
 
-    <div id="batch-formset-container" class="bg-white p-3 rounded border mb-3 shadow-sm">
+    <div id="batches-formset-container" class="bg-white p-3 rounded border mb-3 shadow-sm">
         {{ batch_formset.management_form }}
         {% for b_form in batch_formset %}
             <div class="row g-2 mb-2 align-items-end border-bottom pb-2 batch-row" data-formset-row="batches">
@@ -117,65 +119,71 @@
 </form>
 
 <script>
-// 1. Reindeksacja - zapewnia poprawne nazwy pól dla Django (np. batches-0-price)
+// Funkcja reindeksacji
 function reindexFormset(prefix) {
-    const container = document.getElementById(`${prefix}-formset-container`);
-    if (!container) return;
+    var container = document.getElementById(prefix + '-formset-container');
+    if (!container) {
+        console.error('BŁĄD: Nie znaleziono kontenera: ' + prefix + '-formset-container');
+        return;
+    }
 
-    const rows = container.querySelectorAll(`[data-formset-row="${prefix}"]`);
-    const totalForms = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
+    var rows = container.querySelectorAll('[data-formset-row="' + prefix + '"]');
+    var totalForms = document.getElementById('id_' + prefix + '-TOTAL_FORMS');
 
-    rows.forEach((row, index) => {
-        row.querySelectorAll('input, select, textarea').forEach(input => {
-            const nameAttr = input.name;
-            if (nameAttr) {
-                // Zamienia __prefix__ lub stare cyfry na aktualny indeks
-                const newName = nameAttr.replace(/(__prefix__|\d+)/, index);
-                input.name = newName;
-                input.id = `id_${newName}`;
+    for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        var inputs = row.querySelectorAll('input, select, textarea');
+        for (var j = 0; j < inputs.length; j++) {
+            var input = inputs[j];
+            if (input.name) {
+                // Zamiana indeksów
+                input.name = input.name.replace(/-(__prefix__|\d+)-/g, '-' + i + '-');
+                input.id = 'id_' + input.name;
             }
-        });
-    });
-
-    totalForms.value = rows.length;
-}
-
-// 2. Usuwanie wiersza
-function removeRow(btn, prefix) {
-    btn.closest('[data-formset-row]').remove();
-    reindexFormset(prefix);
-}
-
-// 3. Przeliczanie cen (VAT)
-function calculatePrices(row) {
-    const vatRate = parseFloat(document.getElementById('id_vat_rate').value) || 0;
-    const netInput = row.querySelector('input[name*="net_price"]');
-    const grossInput = row.querySelector('input[name*="gross_price"]');
-    const multiplier = 1 + (vatRate / 100);
-
-    // Jeśli zmieniono netto -> licz brutto
-    if (document.activeElement === netInput && netInput.value) {
-        grossInput.value = (parseFloat(netInput.value) * multiplier).toFixed(2);
+        }
     }
-    // Jeśli zmieniono brutto -> licz netto
-    else if (document.activeElement === grossInput && grossInput.value) {
-        netInput.value = (parseFloat(grossInput.value) / multiplier).toFixed(2);
+
+    if (totalForms) {
+        totalForms.value = rows.length;
+        console.log('ZAKTUALIZOWANO ' + prefix + '. Liczba wierszy: ' + rows.length);
+    } else {
+        console.error('BŁĄD: Nie znaleziono pola TOTAL_FORMS dla: ' + prefix);
     }
 }
 
-// 4. Listenery HTMX i zdarzeń
-document.body.addEventListener('htmx:afterSwap', (e) => {
-    if (e.detail.target.id === 'supplier-formset-container') {
+// Reagowanie na dodanie wiersza przez HTMX
+document.body.addEventListener('htmx:afterSettle', function(evt) {
+    if (evt.detail.target.id === 'suppliers-formset-container') {
         reindexFormset('suppliers');
     }
-    if (e.detail.target.id === 'batch-formset-container') {
+    if (evt.detail.target.id === 'batches-formset-container') {
         reindexFormset('batches');
     }
 });
 
-document.addEventListener('input', (e) => {
-    const row = e.target.closest('.batch-row');
-    if (row) calculatePrices(row);
+// Funkcja usuwania
+function removeRow(btn, prefix) {
+    var row = btn.closest('[data-formset-row]');
+    if (row) {
+        row.remove();
+        reindexFormset(prefix);
+    }
+}
+
+// Przeliczanie cen VAT
+document.addEventListener('input', function(e) {
+    var row = e.target.closest('.batch-row');
+    if (!row) return;
+
+    var vatRate = parseFloat(document.getElementById('id_vat_rate').value) || 0;
+    var netInput = row.querySelector('input[name*="net_price"]');
+    var grossInput = row.querySelector('input[name*="gross_price"]');
+
+    if (e.target === netInput && netInput.value) {
+        grossInput.value = (parseFloat(netInput.value) * (1 + vatRate / 100)).toFixed(2);
+    } else if (e.target === grossInput && grossInput.value) {
+        netInput.value = (parseFloat(grossInput.value) / (1 + vatRate / 100)).toFixed(2);
+    }
 });
 </script>
 

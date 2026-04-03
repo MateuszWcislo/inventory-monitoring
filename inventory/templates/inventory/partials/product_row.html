@@ -45,6 +45,8 @@
         <div class="text-muted small">min: {{ p.min_threshold }}</div>
     </td>
 
+    <td class="text-center">{{ p.vat_rate }}</td>
+
     <td class="text-center">
         {% if p.total_stock < p.min_threshold %}
             <span class="badge rounded-pill bg-danger">

@@ -41,7 +41,8 @@ class ProductBatch(models.Model):
     """Tu trzymamy konkretne ilości w konkretnych cenach."""
     tenant = models.ForeignKey('tenants.Tenant', on_delete=models.CASCADE, related_name='batches')
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='batches')
-    current_stock = models.PositiveIntegerField(verbose_name="Ilość")
+    current_stock = models.PositiveIntegerField(verbose_name="Ilość",default=0,
+                                                null=True, blank=True)
     net_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00,
                                     null=True, blank=True, verbose_name="Cena netto")
     gross_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00,

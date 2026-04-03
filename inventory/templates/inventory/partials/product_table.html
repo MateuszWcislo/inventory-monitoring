@@ -23,7 +23,7 @@
                         <i class="bi bi-caret-{% if current_sort == 'stock' %}{% if current_direction == 'asc' %}up{% else %}down{% endif %}-fill text-primary{% else %}up text-muted small ms-1{% endif %}"></i>
                     </a>
                 </th>
-
+                <th class="text-center">VAT</th>
                 <th class="text-center">Status</th>
                 <th>Dostawcy / SKU</th>
                 <th class="text-end" style="min-width: 120px;">Akcje</th>
@@ -38,34 +38,3 @@
         </tbody>
     </table>
 </div>
-
-<script>
-    // Inicjalizacja logiki checkboxów po załadowaniu partiala
-    (function() {
-        const selectAll = document.getElementById('select-all-products');
-        const bulkBtn = document.getElementById('bulk-add-btn');
-        const countSpan = document.getElementById('selected-count');
-
-        if (selectAll) {
-            selectAll.addEventListener('change', function() {
-                const checkboxes = document.querySelectorAll('.product-checkbox');
-                checkboxes.forEach(cb => cb.checked = selectAll.checked);
-                updateBulkBtn();
-            });
-        }
-
-        document.addEventListener('change', function(e) {
-            if (e.target.classList.contains('product-checkbox')) {
-                updateBulkBtn();
-            }
-        });
-
-        function updateBulkBtn() {
-            const activeCount = document.querySelectorAll('.product-checkbox:checked').length;
-            if (bulkBtn) {
-                bulkBtn.style.display = activeCount > 0 ? 'block' : 'none';
-                countSpan.innerText = activeCount;
-            }
-        }
-    })();
-</script>
