@@ -1,83 +1,56 @@
-<div class="modal-header {% if order.status == 'CANCELLED' %}bg-danger{% elif order.status == 'CLOSED' %}bg-success{% else %}bg-primary{% endif %} text-white">
-    <h5 class="modal-title">
-        <i class="bi bi-file-earmark-text me-2"></i>Podgląd zamówienia #{{ order.number }}
-    </h5>
-    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+<div class="modal-header bg-light">
+    <h5 class="modal-title">Szczegóły zamówienia #{{ order.id|stringformat:".8s" }}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
 </div>
-
 <div class="modal-body">
-    <div class="row mb-4">
-        <div class="col-md-7">
-            <p class="text-muted small text-uppercase fw-bold mb-1">Dostawca</p>
-            <h4 class="text-primary">{{ order.supplier.name }}</h4>
+    <div class="row mb-3">
+        <div class="col-6">
+            <small class="text-muted d-block">Produkt (Snapshot):</small>
+            <span class="fw-bold">{{ order.product_name_snapshot }}</span>
         </div>
-        <div class="col-md-5 text-md-end">
-            <p class="text-muted small text-uppercase fw-bold mb-1">Status</p>
-            <span class="badge fs-6
-                {% if order.status == 'OPEN' %}bg-info
-                {% elif order.status == 'CLOSED' %}bg-success
-                {% else %}bg-danger{% endif %}">
-                {{ order.get_status_display }}
-            </span>
+        <div class="col-6">
+            <small class="text-muted d-block">Typ:</small>
+            <span class="badge bg-info text-dark">{{ order.get_order_type_display }}</span>
         </div>
     </div>
 
-    <div class="row mb-4 py-3 bg-light rounded border mx-0">
-        <div class="col-sm-6 text-center border-sm-end">
-            <p class="mb-1 text-muted small text-uppercase fw-bold">Data utworzenia</p>
-            <p class="mb-0 fw-bold">
-                <i class="bi bi-calendar-plus me-1 text-primary"></i>
-                {{ order.created_at|date:"d.m.Y H:i" }}
-            </p>
-        </div>
-
-        <div class="col-sm-6 text-center mt-3 mt-sm-0">
-            {% if order.completed_at %}
-                <p class="mb-1 text-muted small text-uppercase fw-bold">
-                    {% if order.status == 'CLOSED' %}Zrealizowano{% else %}Anulowano{% endif %}
-                </p>
-                <p class="mb-0 fw-bold">
-                    <i class="bi bi-calendar-check me-1 text-success"></i>
-                    {{ order.completed_at|date:"d.m.Y H:i" }}
-                </p>
-            {% else %}
-                <p class="mb-1 text-muted small text-uppercase fw-bold">Oczekuje na</p>
-                <p class="mb-0 text-muted italic">Realizacja w toku...</p>
-            {% endif %}
+    <div class="p-3 border rounded bg-white mb-3">
+        <h6 class="border-bottom pb-2 mb-3">Dane dostawy</h6>
+        <div class="row">
+            <div class="col-6">
+                <small class="text-muted d-block">Dostawca:</small>
+                <span>{{ order.supplier.name|default:"<span class='text-danger italic'>Nieustalony</span>"|safe }}</span>
+            </div>
+            <div class="col-6">
+                <small class="text-muted d-block">SKU u dostawcy:</small>
+                <code>{{ order.supplier_sku_snapshot|default:"---" }}</code>
+            </div>
         </div>
     </div>
 
-    <h6 class="border-bottom pb-2 mb-3">Pozycje zamówienia</h6>
-    <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>Produkt</th>
-                    <th class="text-center">Ilość</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in order.items.all %}
-                <tr>
-                    <td>{{ item.product.name }}</td>
-                    <td class="text-center fw-bold">{{ item.quantity }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="2" class="text-center text-muted py-3">Brak produktów w tym zamówieniu.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="p-3 border rounded bg-light mb-3">
+        <h6 class="border-bottom pb-2 mb-3">Finanse i Ilość</h6>
+        <div class="row text-center">
+            <div class="col-4">
+                <small class="text-muted d-block">Ilość:</small>
+                <span class="fs-5 fw-bold">{{ order.quantity }}</span>
+            </div>
+            <div class="col-4">
+                <small class="text-muted d-block">Cena Netto:</small>
+                <span class="fs-5">{{ order.net_price|default:"0.00" }}</span>
+            </div>
+            <div class="col-4">
+                <small class="text-muted d-block">Cena Brutto:</small>
+                <span class="fs-5">{{ order.gross_price|default:"0.00" }}</span>
+            </div>
+        </div>
     </div>
 </div>
-
-<div class="modal-footer bg-light d-flex justify-content-between">
-    <button class="btn btn-outline-primary"
-            hx-get="{% url 'order_copy' order.id %}"
-            hx-target="#modal-content">
-        <i class="bi bi-copy me-2"></i>Utwórz na podstawie
-    </button>
-
-    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij podgląd</button>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
+    {% if order.status == 'CREATED' %}
+        <button class="btn btn-primary" hx-get="{% url 'order_edit' order.id %}" hx-target="#modal-content">
+            Uzupełnij dane / Edytuj
+        </button>
+    {% endif %}
 </div>

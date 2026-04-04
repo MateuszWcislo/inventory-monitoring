@@ -19,13 +19,19 @@
         </div>
 
         <div class="row g-3">
-            <div class="col-md-6 mb-3">
+            <div class="col-md-4 mb-3">
                 <label class="form-label fw-bold small text-uppercase text-muted">NIP</label>
                 {{ form.nip }}
             </div>
-            <div class="col-md-6 mb-3">
+            <div class="col-md-4 mb-3">
                 <label class="form-label fw-bold small text-uppercase text-muted">Telefon główny</label>
                 {{ form.phone }}
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label fw-bold small text-uppercase text-primary">
+                    <i class="bi bi-globe2 me-1"></i>Strona WWW
+                </label>
+                {{ form.website }}
             </div>
         </div>
 
@@ -34,10 +40,10 @@
             {{ form.address }}
         </div>
 
-        <hr class="my-4 text-muted">
+        <hr class="my-4 text-muted opacity-25">
 
-        <h6 class="mb-3 text-primary small fw-bold text-uppercase">
-            <i class="bi bi-person-badge me-2"></i>Osoba do kontaktu / Opiekun
+        <h6 class="mb-3 text-primary small fw-bold text-uppercase d-flex align-items-center">
+            <i class="bi bi-person-badge-fill me-2 fs-5"></i>Osoba do kontaktu / Opiekun
         </h6>
 
         <div class="row g-3">
@@ -51,11 +57,11 @@
             </div>
         </div>
 
-        <hr class="my-4 text-muted">
+        <hr class="my-4 text-muted opacity-25">
 
         <div class="mb-2">
-            <label class="fw-bold mb-2 small text-uppercase text-primary">
-                <i class="bi bi-boxes me-2"></i>Przypisany asortyment i kody SKU
+            <label class="fw-bold mb-2 small text-uppercase text-primary d-flex align-items-center">
+                <i class="bi bi-boxes me-2 fs-5"></i>Przypisany asortyment i kody SKU
             </label>
 
             <div class="border rounded bg-white shadow-sm overflow-hidden">
@@ -63,38 +69,43 @@
                     <table class="table table-sm table-hover align-middle mb-0">
                         <thead class="table-light sticky-top" style="z-index: 10;">
                             <tr>
-                                <th class="ps-3" style="width: 45px;"></th>
+                                <th class="ps-3 text-center" style="width: 50px;">
+                                    <i class="bi bi-check2-all"></i>
+                                </th>
                                 <th>Produkt</th>
-                                <th style="width: 240px;">SKU u tego dostawcy</th>
+                                <th style="width: 260px;">SKU u tego dostawcy</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for choice in form.fields.products_selection.queryset %}
                             <tr class="product-row">
                                 <td class="ps-3 text-center">
-                                    {# Sprawdzamy czy ID produktu jest w aktualnych mapowaniach dostawcy #}
                                     <input type="checkbox" name="products_selection" value="{{ choice.id }}"
-                                           id="product_{{ choice.id }}" class="form-check-input product-checkbox"
+                                           id="product_{{ choice.id }}" class="form-check-input product-checkbox shadow-none"
                                            {% if supplier %}{% for m in supplier.product_mappings.all %}{% if m.product_id == choice.id %}checked{% endif %}{% endfor %}{% endif %}>
                                 </td>
                                 <td>
-                                    <label for="product_{{ choice.id }}" class="form-check-label fw-bold d-block py-1 cursor-pointer">
+                                    <label for="product_{{ choice.id }}" class="form-check-label fw-bold d-block py-2 cursor-pointer small">
                                         {{ choice.name }}
                                     </label>
                                 </td>
                                 <td class="pe-3">
-                                    {# Szukamy zapisanego SKU dla tego konkretnego produktu #}
-                                    <input type="text" name="sku_{{ choice.id }}"
-                                           class="form-control form-control-sm sku-input"
-                                           placeholder="Opcjonalny kod SKU..."
-                                           value="{% if supplier %}{% for m in supplier.product_mappings.all %}{% if m.product_id == choice.id %}{{ m.supplier_sku|default:'' }}{% endif %}{% endfor %}{% endif %}">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-light text-muted border-end-0">
+                                            <i class="bi bi-tag-fill" style="font-size: 0.7rem;"></i>
+                                        </span>
+                                        <input type="text" name="sku_{{ choice.id }}"
+                                               class="form-control form-control-sm sku-input border-start-0"
+                                               placeholder="Kod u dostawcy..."
+                                               value="{% if supplier %}{% for m in supplier.product_mappings.all %}{% if m.product_id == choice.id %}{{ m.supplier_sku|default:'' }}{% endif %}{% endfor %}{% endif %}">
+                                    </div>
                                 </td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="3" class="text-center py-5 text-muted">
-                                    <i class="bi bi-info-circle d-block mb-2 fs-4"></i>
-                                    Brak produktów w bazie dla Twojej firmy.
+                                <td colspan="3" class="text-center py-5 text-muted bg-white">
+                                    <i class="bi bi-slash-circle d-block mb-2 fs-3 text-secondary"></i>
+                                    Brak produktów przypisanych do Twojej firmy.
                                 </td>
                             </tr>
                             {% endfor %}
@@ -102,55 +113,66 @@
                     </table>
                 </div>
             </div>
-            <div class="form-text mt-2 small text-muted">
-                <i class="bi bi-lightbulb me-1 text-warning"></i>
-                Zaznacz produkty oferowane przez dostawcę. Możesz edytować kody SKU w dowolnym momencie.
+            <div class="alert alert-info mt-3 mb-0 py-2 border-0 bg-opacity-10 d-flex align-items-center" style="font-size: 0.78rem;">
+                <i class="bi bi-lightbulb-fill me-2 text-warning fs-6"></i>
+                <div>Zaznacz produkty oferowane przez dostawcę. Pola SKU zostaną odblokowane automatycznie.</div>
             </div>
         </div>
     </div>
 
-    <div class="modal-footer bg-light border-top shadow-sm">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Anuluj</button>
-        <button type="submit" class="btn btn-primary px-4 shadow-sm fw-bold">
-            <i class="bi bi-save me-2"></i>Zapisz dostawcę
+    <div class="modal-footer bg-light border-top shadow-sm px-4">
+        <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" class="btn btn-primary btn-sm px-4 shadow-sm fw-bold">
+            <i class="bi bi-save2 me-2"></i>Zapisz zmiany
         </button>
     </div>
 </form>
 
 <style>
     .cursor-pointer { cursor: pointer; }
-    .sticky-top { background-color: #f8f9fa !important; border-bottom: 2px solid #dee2e6; }
-    .product-row:hover { background-color: rgba(13, 110, 253, 0.03); }
+    .sticky-top { border-bottom: 2px solid #dee2e6; }
+    .product-row:hover { background-color: rgba(13, 110, 253, 0.04); transition: 0.2s; }
+    .form-check-input:checked { background-color: #0d6efd; border-color: #0d6efd; }
+    .sku-input:focus { z-index: 0 !important; }
 </style>
 
 <script>
     /**
-     * Zarządzanie stanem pól SKU w zależności od checkboxa
+     * Zarządzanie interakcją pól SKU
      */
     function initProductFormLogic() {
         const rows = document.querySelectorAll('.product-row');
 
         rows.forEach(row => {
             const cb = row.querySelector('.product-checkbox');
+            const inputGroup = row.querySelector('.input-group');
             const input = row.querySelector('.sku-input');
 
             const refreshState = () => {
                 if (cb.checked) {
-                    input.style.opacity = "1";
-                    input.style.pointerEvents = "auto";
+                    inputGroup.style.opacity = "1";
+                    input.disabled = false;
                     input.classList.remove('bg-light');
+                    row.classList.add('table-primary', 'bg-opacity-10');
                 } else {
-                    input.style.opacity = "0.4";
-                    input.style.pointerEvents = "none";
+                    inputGroup.style.opacity = "0.35";
+                    input.disabled = true;
                     input.classList.add('bg-light');
+                    row.classList.remove('table-primary', 'bg-opacity-10');
                 }
             };
 
             cb.addEventListener('change', refreshState);
-            refreshState(); // Stan początkowy
+            refreshState();
         });
     }
 
-    // Wywołanie skryptu
-    initProductFormLogic();
+    // Uruchomienie skryptu po załadowaniu modala (dla HTMX)
+    if (typeof htmx !== 'undefined') {
+        htmx.onLoad(function(content) {
+            initProductFormLogic();
+        });
+    } else {
+        initProductFormLogic();
+    }
 </script>

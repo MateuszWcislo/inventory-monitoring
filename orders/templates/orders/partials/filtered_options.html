@@ -1,0 +1,13 @@
+{% if suppliers %}
+    <option value="">---------</option>
+    {% for s in suppliers %}
+        <option value="{{ s.id }}">{{ s.name }}</option>
+    {% endfor %}
+{% endif %}
+
+{% if products %}
+    <option value="">---------</option>
+    {% for p in products %}
+        <option value="{{ p.id }}">{{ p.name }}</option>
+    {% endfor %}
+{% endif %}

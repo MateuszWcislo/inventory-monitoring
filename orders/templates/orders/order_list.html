@@ -2,43 +2,38 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h2 class="mb-0"><i class="bi bi-cart-check me-2"></i>Zamówienia</h2>
-        <p class="text-muted small mb-0">Zarządzaj procesem zakupowym i dostawami towaru.</p>
+    <div class="search-box d-flex gap-2 w-75">
+        <div class="input-group w-50">
+            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+            <input type="text" name="q" class="form-control border-start-0"
+                   placeholder="Szukaj produktu lub dostawcy..."
+                   hx-get="{% url 'order_list' %}"
+                   hx-trigger="keyup changed delay:500ms"
+                   hx-target="#order-table-container"
+                   hx-include="[name='status']">
+        </div>
+
+        <select name="status" class="form-select w-25"
+                hx-get="{% url 'order_list' %}"
+                hx-target="#order-table-container"
+                hx-include="[name='q']">
+            <option value="">Wszystkie statusy</option>
+            {% for val, label in status_choices %}
+                <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
     </div>
 
     <button class="btn btn-primary"
             hx-get="{% url 'order_create' %}"
             hx-target="#modal-content"
             data-bs-toggle="modal"
-            data-bs-target="#productModal"
-            data-bs-backdrop="static"
-            data-bs-keyboard="false">
+            data-bs-target="#productModal">
         <i class="bi bi-plus-lg me-2"></i>Nowe zamówienie
     </button>
 </div>
 
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm bg-success text-white">
-            <div class="card-body">
-                <h6 class="card-title opacity-75">Otwarte</h6>
-                <div hx-get="{% url 'order_count' %}"
-                     hx-trigger="load, ordersChanged from:body">
-                    {% include 'orders/partials/order_count.html' %}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="card shadow-sm border-0">
-    <div class="card-body p-0">
-        <div id="order-table-container"
-             hx-get="{% url 'order_list' %}"
-             hx-trigger="ordersChanged from:body">
-            {% include 'orders/partials/order_table.html' %}
-        </div>
-    </div>
+<div id="order-table-container" hx-get="{% url 'order_list' %}" hx-trigger="ordersChanged from:body">
+    {% include 'orders/partials/order_table.html' %}
 </div>
 {% endblock %}

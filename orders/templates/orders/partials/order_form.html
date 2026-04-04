@@ -1,200 +1,107 @@
-<div class="modal-header bg-light">
-    <h5 class="modal-title">
-        {% if order and order.id %}
-            Edytuj zamówienie <small class="text-muted">#{{ order.number|stringformat:".8s" }}</small>
-        {% else %}
-            Nowe zamówienie
-        {% endif %}
+<div class="modal-header bg-dark text-white px-4">
+    <h5 class="modal-title d-flex align-items-center text-uppercase fs-6 fw-bold">
+        <i class="bi bi-cart-plus-fill me-2 text-primary"></i>
+        {% if form.instance.pk %}Edycja zamówienia{% else %}Nowe zamówienie ręczne{% endif %}
     </h5>
-    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
 </div>
 
-{# Używamy hx-include, aby mieć pewność, że supplier id leci zawsze w żądaniu #}
-<form {% if order and order.id %} hx-post="{% url 'order_edit' order.id %}" {% else %} hx-post="{% url 'order_create' %}" {% endif %}
-      hx-target="#modal-content"
-      id="order-form">
+<form hx-post="{% if form.instance.pk %}{% url 'order_edit' form.instance.id %}{% else %}{% url 'order_create' %}{% endif %}">
     {% csrf_token %}
-    <div class="modal-body">
-
-        <div class="row g-3 mb-3">
-            <div class="{% if form.status %}col-md-7{% else %}col-12{% endif %}">
-                <label class="fw-bold small mb-1">Dostawca</label>
-
-                {% if order.id or request.GET.refresh == "true" or form.instance.supplier or form.supplier.value %}
-                    {# 1. Pokazujemy zablokowany select tylko dla oka #}
-                    <div class="input-group">
-                        <span class="input-group-text bg-white py-1"><i class="bi bi-truck"></i></span>
-                        <select class="form-select bg-light" disabled>
-                            {% for s in form.fields.supplier.queryset %}
-                                {# Sprawdzamy wartość w form.supplier.value lub instancji #}
-                                <option value="{{ s.id }}"
-                                    {% if form.supplier.value|stringformat:"s" == s.id|stringformat:"s" or form.instance.supplier_id == s.id %}selected{% endif %}>
-                                    {{ s.name }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    {# 2. UKRYTE POLE - To ono faktycznie zapisuje dostawcę w bazie #}
-                    <input type="hidden" name="supplier" value="{% if form.supplier.value %}{{ form.supplier.value }}{% elif form.instance.supplier_id %}{{ form.instance.supplier_id }}{% endif %}">
-
-                {% else %}
-                    {# Widok początkowy - wybór dostawcy #}
-                    <select name="supplier" class="form-select"
-                            hx-get="{% url 'order_create' %}"
-                            hx-target="#modal-content"
-                            hx-trigger="change"
-                            hx-vals='{"refresh": "true"}'>
-                        <option value="">-- Wybierz dostawcę --</option>
-                        {% for s in form.fields.supplier.queryset %}
-                            <option value="{{ s.id }}">{{ s.name }}</option>
-                        {% endfor %}
-                    </select>
-                {% endif %}
-                {% if form.supplier.errors %}
-                    <div class="text-danger small">{{ form.supplier.errors }}</div>
-                {% endif %}
+    {{ form.order_type }} <div class="modal-body p-4 bg-light">
+        <div class="row g-3">
+            <div class="col-md-8">
+                <label class="form-label small fw-bold text-secondary">Produkt</label>
+                {{ form.product }}
             </div>
-
-            {% if form.fields.status %}
-            <div class="col-md-5">
-                <label class="fw-bold small mb-1 text-primary">Status</label>
+            <div class="col-md-4">
+                <label class="form-label small fw-bold text-secondary">Status</label>
                 {{ form.status }}
             </div>
-            {% endif %}
-        </div>
 
-        {% if order.id and order.status == 'OPEN' %}
-            <div class="alert alert-info py-2 small mb-3">
-                <i class="bi bi-info-circle me-2"></i>Zmiana statusu na <strong>Zamknięte</strong> doda produkty do magazynu.
+            <div class="col-12">
+                <label class="form-label small fw-bold text-secondary">Dostawca</label>
+                {{ form.supplier }}
             </div>
-        {% endif %}
 
-        {% if formset.non_form_errors %}
-            <div class="alert alert-danger py-2 small">
-                {% for error in formset.non_form_errors %}{{ error }}{% endfor %}
+            <div class="col-md-4">
+                <label class="form-label small fw-bold text-secondary">Ilość sztuk</label>
+                {{ form.quantity }}
             </div>
-        {% endif %}
 
-        <hr>
-
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h6 class="mb-0"><i class="bi bi-box-seam me-2"></i>Produkty w zamówieniu</h6>
-            {# Przycisk odblokowany tylko gdy mamy dostawcę #}
-            <button type="button"
-                    class="btn btn-sm btn-success {% if not form.supplier.value and not form.instance.supplier_id %}disabled{% endif %}"
-                    id="add-item-btn">
-                <i class="bi bi-plus-circle me-1"></i>Dodaj produkt
-            </button>
-        </div>
-
-        {{ formset.management_form }}
-
-        <div id="order-items-container">
-           {% for f in formset %}
-                <div class="row g-2 mb-2 align-items-end item-row border-bottom pb-2 {% if f.DELETE.value %}d-none{% endif %}">
-                    {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
-
-                    <div class="col-7">
-                        <label class="small text-muted d-block">Produkt</label>
-                        {{ f.product }}
-                        {% if f.product.errors %}<div class="text-danger small">{{ f.product.errors }}</div>{% endif %}
-                    </div>
-                    <div class="col-3">
-                        <label class="small text-muted d-block">Ilość</label>
-                        {{ f.quantity }}
-                        {% if f.quantity.errors %}<div class="text-danger small">{{ f.quantity.errors }}</div>{% endif %}
-                    </div>
-                    <div class="col-2 text-center pb-1">
-                        <div class="d-none">{{ f.DELETE }}</div>
-                        <button type="button" class="btn btn-outline-danger btn-sm remove-item-btn mt-3">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-bold text-secondary text-success">Cena Netto</label>
+                <div class="input-group">
+                    {{ form.net_price }}
+                    <span class="input-group-text small">PLN</span>
                 </div>
-           {% endfor %}
-        </div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-bold text-secondary text-primary">Cena Brutto</label>
+                <div class="input-group">
+                    {{ form.gross_price }}
+                    <span class="input-group-text small">PLN</span>
+                </div>
+            </div>
 
-        {# Szablon pustego wiersza #}
-        <div id="empty-form" class="d-none">
-            <div class="row g-2 mb-2 align-items-end item-row border-bottom pb-2">
-                <div class="col-7">
-                    <label class="small text-muted d-block">Produkt</label>
-                    {{ formset.empty_form.product }}
-                </div>
-                <div class="col-3">
-                    <label class="small text-muted d-block">Ilość</label>
-                    {{ formset.empty_form.quantity }}
-                </div>
-                <div class="col-2 text-center pb-1">
-                    <div class="d-none">{{ formset.empty_form.DELETE }}</div>
-                    <button type="button" class="btn btn-outline-danger btn-sm remove-item-btn mt-3">
-                        <i class="bi bi-trash"></i>
-                    </button>
+            <div id="vat-info" class="col-12 mt-2">
+                <div class="badge bg-secondary opacity-75 fw-normal p-2 w-100 text-start">
+                    <i class="bi bi-percent me-1"></i> Stawka VAT produktu: <span id="current-vat">0</span>%
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="modal-footer bg-light d-flex justify-content-between">
-        <div>
-            {% if order and order.id %}
-                <button type="button"
-                        class="btn btn-outline-danger"
-                        hx-delete="{% url 'order_edit' order.id %}"
-                        hx-confirm="Czy na pewno chcesz anulować to zamówienie?"
-                        hx-target="#modal-content">
-                    <i class="bi bi-trash me-1"></i>Usuń
-                </button>
-            {% endif %}
-        </div>
-        <div>
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Powrót</button>
-            <button type="submit" class="btn btn-primary px-4"
-                    {% if not form.supplier.value and not form.instance.supplier_id %}disabled{% endif %}>
-                {% if order and order.id %} Zaktualizuj {% else %} Zapisz i stwórz {% endif %}
-            </button>
-        </div>
+    <div class="modal-footer bg-white px-4">
+        <button type="button" class="btn btn-link text-muted text-decoration-none" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" class="btn btn-primary px-4 shadow-sm" data-bs-dismiss="modal">Zapisz zamówienie</button>
     </div>
 </form>
 
 <script>
-    (function() {
-        const addBtn = document.getElementById('add-item-btn');
-        const container = document.getElementById('order-items-container');
-        const totalForms = document.querySelector('input[name$="-TOTAL_FORMS"]');
-        const emptyFormDiv = document.getElementById('empty-form');
-
-        if (addBtn && container && totalForms && emptyFormDiv) {
-            addBtn.onclick = function(e) {
-                e.preventDefault();
-                const formNum = parseInt(totalForms.value);
-                const rawHtml = emptyFormDiv.innerHTML.replace(/__prefix__/g, formNum);
-
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = rawHtml.trim();
-                const newRow = tempDiv.firstElementChild;
-
-                container.appendChild(newRow);
-                totalForms.value = formNum + 1;
-            };
+    // Nasłuchuj na zdarzenie htmx:afterOnLoad, aby zaktualizować VAT,
+    // gdy HTMX podmieni listę produktów po wyborze dostawcy
+    document.body.addEventListener('htmx:afterOnLoad', function(evt) {
+        if (evt.detail.target.id === 'id_product') {
+            updateVatRate(document.getElementById('id_product'));
         }
+    });
 
-        if (container) {
-            container.onclick = function(e) {
-                const btn = e.target.closest('.remove-item-btn');
-                if (!btn) return;
+    // Mapa stawek VAT z Pythona do JS
+    const productVats = {{ form.product_vats|safe }};
+    let activeVat = 0;
 
-                const row = btn.closest('.item-row');
-                const deleteCheckbox = row.querySelector('input[name$="-DELETE"]');
+    function updateVatRate(selectElement) {
+        const productId = selectElement.value;
+        activeVat = productVats[productId] || 0;
+        document.getElementById('current-vat').innerText = activeVat;
 
-                if (deleteCheckbox && row.querySelector('input[name$="-id"]')?.value) {
-                    deleteCheckbox.checked = true;
-                    row.classList.add('d-none');
-                } else {
-                    row.remove();
-                    // Opcjonalnie: nie zmniejszamy TOTAL_FORMS, Django obsłuży luki
-                }
-            };
+        // Jeśli ceny były już wpisane, przelicz je po zmianie produktu
+        recalculateFromNet();
+    }
+
+    const netInput = document.getElementById('id_net_price');
+    const grossInput = document.getElementById('id_gross_price');
+
+    function recalculateFromNet() {
+        if (netInput.value) {
+            const net = parseFloat(netInput.value);
+            const gross = net * (1 + activeVat / 100);
+            grossInput.value = gross.toFixed(2);
         }
-    })();
+    }
+
+    function recalculateFromGross() {
+        if (grossInput.value) {
+            const gross = parseFloat(grossInput.value);
+            const net = gross / (1 + activeVat / 100);
+            netInput.value = net.toFixed(2);
+        }
+    }
+
+    netInput.addEventListener('input', recalculateFromNet);
+    grossInput.addEventListener('input', recalculateFromGross);
+
+    // Inicjalizacja przy otwarciu (jeśli produkt jest już wybrany)
+    window.addEventListener('load', () => updateVatRate(document.getElementById('id_product')));
 </script>

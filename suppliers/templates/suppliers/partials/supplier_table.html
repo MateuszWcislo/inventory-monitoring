@@ -27,6 +27,8 @@
                         <i class="bi bi-person ms-1 small {% if 'representative' not in sort %}opacity-25{% endif %}"></i>
                     </a>
                 </th>
+                <th class="text-center">Telefon</th>
+                <th class="text-center">WWW</th>
                 <th class="text-center">Asortyment</th>
                 <th class="text-end pe-4">Akcje</th>
             </tr>
@@ -39,6 +41,19 @@
                 <td>
                     <div class="small fw-bold">{{ supplier.representative|default:"---" }}</div>
                     <div class="text-muted tiny" style="font-size: 0.75rem;">{{ supplier.email|default:"" }}</div>
+                </td>
+                <td class="text-center">{{ supplier.phone|default:"---" }}</td>
+                <td class="text-center">
+                    {% if supplier.website %}
+                        <a href="http://{{ supplier.website|cut:'http://'|cut:'https://' }}"
+                           target="_blank"
+                           class="text-decoration-none small fw-semibold border-bottom border-primary border-opacity-25 pb-1">
+                            {# Wyświetlamy skrócony adres (bez http/https) #}
+                            {{ supplier.website|cut:'http://'|cut:'https://'|truncatechars:25 }}
+                        </a>
+                    {% else %}
+                        <span class="text-muted opacity-50 small">—</span>
+                    {% endif %}
                 </td>
                 <td class="text-center">
                     <span class="badge bg-light text-dark border">

@@ -15,7 +15,7 @@ class SupplierForm(forms.ModelForm):
 
     class Meta:
         model = Supplier
-        fields = ['name', 'nip', 'address', 'phone', 'representative', 'email']
+        fields = ['name', 'nip', 'address', 'phone', 'representative', 'email', 'website']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'nip': forms.TextInput(attrs={'class': 'form-control'}),
@@ -23,6 +23,7 @@ class SupplierForm(forms.ModelForm):
             'phone': forms.TextInput(attrs={'class': 'form-control'}),
             'representative': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'website': forms.TextInput(attrs={'class': 'form-control'}),
         }
 
     def __init__(self, *args, **kwargs):

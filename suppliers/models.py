@@ -11,6 +11,7 @@ class Supplier(models.Model):
     nip = models.CharField(max_length=15, blank=True, null=True, verbose_name="NIP")
     address = models.TextField(blank=True, null=True, verbose_name="Adres")
     phone = models.CharField(max_length=50, blank=True, null=True, verbose_name="Telefon główny")
+    website = models.CharField(max_length=255, blank=True, null=True, verbose_name="Strona WWW")
 
     # Dane kontaktowe (Osoba)
     representative = models.CharField(max_length=255, blank=True, null=True, verbose_name="Opiekun / Osoba kontaktowa")
