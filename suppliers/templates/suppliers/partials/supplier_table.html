@@ -1,54 +1,86 @@
-<div class="table-responsive bg-white shadow-sm rounded">
+<div class="table-responsive bg-white rounded shadow-sm">
     <table class="table table-hover align-middle mb-0">
         <thead class="table-light">
             <tr>
-                <th>Nazwa</th>
-                <th>NIP</th>
-                <th>Adres</th>
-                <th>Opiekun</th>
-                <th>Telefon</th>
-                <th>E-mail</th>
-                <th class="text-end">Akcje</th>
+                <th>
+                    <a href="#" class="text-decoration-none text-dark d-flex align-items-center"
+                       hx-get="{% url 'supplier_list' %}?sort={% if sort == 'name' %}-name{% else %}name{% endif %}&q={{ q }}"
+                       hx-target="#supplier-table-container"
+                       hx-push-url="true">
+                        Nazwa dostawcy
+                        <i class="bi bi-sort-alpha-down ms-1 {% if 'name' not in sort %}opacity-25{% endif %}"></i>
+                    </a>
+                </th>
+                <th>
+                    <a href="#" class="text-decoration-none text-dark d-flex align-items-center"
+                       hx-get="{% url 'supplier_list' %}?sort={% if sort == 'nip' %}-nip{% else %}nip{% endif %}&q={{ q }}"
+                       hx-target="#supplier-table-container">
+                        NIP
+                        <i class="bi bi-arrow-down-up ms-1 small {% if 'nip' not in sort %}opacity-25{% endif %}"></i>
+                    </a>
+                </th>
+                <th>
+                    <a href="#" class="text-decoration-none text-dark d-flex align-items-center"
+                       hx-get="{% url 'supplier_list' %}?sort={% if sort == 'representative' %}-representative{% else %}representative{% endif %}&q={{ q }}"
+                       hx-target="#supplier-table-container">
+                        Opiekun
+                        <i class="bi bi-person ms-1 small {% if 'representative' not in sort %}opacity-25{% endif %}"></i>
+                    </a>
+                </th>
+                <th class="text-center">Asortyment</th>
+                <th class="text-end pe-4">Akcje</th>
             </tr>
         </thead>
         <tbody>
-            {% for s in suppliers %}
+            {% for supplier in suppliers %}
             <tr>
-                <td class="fw-bold">{{ s.name }}</td>
-                <td>{{ s.nip|default_if_none:"—" }}</td>
-                <td class="small text-muted">{{ s.address|truncatechars:30|default_if_none:"—" }}</td>
-                <td>{{ s.representative|default_if_none:"—" }}</td>
-                <td>{{ s.phone|default_if_none:"—" }}</td>
-                <td>{{ s.email|default_if_none:"—" }}</td>
-                <td class="text-end">
-                    <button class="btn btn-outline-info btn-sm"
-                            hx-get="{% url 'supplier_preview' s.id %}"
-                            hx-target="#modal-content"
-                            data-bs-toggle="modal"
-                            data-bs-target="#supplierModal">
-                        <i class="bi bi-eye"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-primary me-1"
-                            hx-get="{% url 'supplier_edit' s.id %}"
-                            hx-target="#modal-content"
-                            data-bs-toggle="modal"
-                            data-bs-target="#supplierModal">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger"
-                            hx-get="{% url 'supplier_delete' s.id %}"
-                            hx-target="#modal-content"
-                            data-bs-toggle="modal"
-                            data-bs-target="#supplierModal">
-                        <i class="bi bi-trash"></i>
-                    </button>
+                <td class="fw-bold text-primary">{{ supplier.name }}</td>
+                <td>{{ supplier.nip|default:"---" }}</td>
+                <td>
+                    <div class="small fw-bold">{{ supplier.representative|default:"---" }}</div>
+                    <div class="text-muted tiny" style="font-size: 0.75rem;">{{ supplier.email|default:"" }}</div>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-light text-dark border">
+                        {{ supplier.product_mappings.count }} poz.
+                    </span>
+                </td>
+                <td class="text-end pe-3">
+                    <div class="btn-group shadow-sm">
+                        <button class="btn btn-sm btn-outline-secondary"
+                                hx-get="{% url 'supplier_preview' supplier.id %}"
+                                hx-target="#modal-content"
+                                data-bs-toggle="modal"
+                                data-bs-target="#productModal">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary"
+                                hx-get="{% url 'supplier_edit' supplier.id %}"
+                                hx-target="#modal-content"
+                                data-bs-toggle="modal"
+                                data-bs-target="#productModal">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger"
+                                hx-get="{% url 'supplier_delete' supplier.id %}"
+                                hx-target="#modal-content"
+                                data-bs-toggle="modal"
+                                data-bs-target="#productModal">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="5" class="text-center py-4 text-muted">Brak dostawców w bazie.</td>
+                <td colspan="5" class="text-center py-5 text-muted">
+                    <i class="bi bi-search d-block mb-2 fs-3 opacity-25"></i>
+                    Nie znaleziono dostawców spełniających kryteria.
+                </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+
+<input type="hidden" name="sort" value="{{ sort }}" hx-swap-oob="true">

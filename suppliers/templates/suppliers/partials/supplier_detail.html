@@ -1,74 +1,101 @@
-<div class="modal-header bg-light border-bottom shadow-sm">
-    <h5 class="modal-title d-flex align-items-center">
-        <i class="bi bi-person-vcard text-primary me-2"></i>
-        <span>{{ supplier.name }}</span>
+<div class="modal-header bg-light border-bottom">
+    <h5 class="modal-title">
+        <i class="bi bi-info-circle me-2 text-primary"></i>
+        Szczegóły dostawcy: {{ supplier.name }}
     </h5>
     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
 
-<div class="modal-body">
-    <div class="row g-3 mb-4">
-        <div class="col-sm-6">
-            <label class="text-muted small d-block mb-1 text-uppercase fw-bold" style="font-size: 0.7rem;">Opiekun / Kontakt</label>
-            <div class="d-flex align-items-center">
-                <i class="bi bi-person me-2 text-secondary"></i>
-                <strong>{{ supplier.representative|default:"Nie podano" }}</strong>
+<div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
+    <div class="row g-4 mb-4">
+        <div class="col-md-6">
+            <h6 class="text-muted small text-uppercase fw-bold mb-3 border-bottom pb-1">Dane firmy</h6>
+            <div class="mb-2">
+                <small class="text-muted d-block">NIP:</small>
+                <span class="fw-bold">{{ supplier.nip|default:"—" }}</span>
             </div>
-            {% if supplier.email %}
-            <div class="text-muted small ms-4">
-                <i class="bi bi-envelope me-1"></i>{{ supplier.email }}
+            <div class="mb-2">
+                <small class="text-muted d-block">Adres siedziby:</small>
+                <span class="small">{{ supplier.address|default:"—"|linebreaksbr }}</span>
             </div>
-            {% endif %}
-            {% if supplier.phone %}
-            <div class="text-muted small ms-4">
-                <i class="bi bi-telephone me-1"></i>{{ supplier.phone }}
-            </div>
-            {% endif %}
         </div>
-        <div class="col-sm-6 text-sm-end">
-            <button class="btn btn-outline-primary btn-sm mt-2"
-                    hx-get="{% url 'supplier_edit_products' supplier.id %}"
-                    hx-target="#modal-content">
-                <i class="bi bi-pencil-square me-1"></i>Edytuj asortyment
-            </button>
+        <div class="col-md-6 border-start-md">
+            <h6 class="text-muted small text-uppercase fw-bold mb-3 border-bottom pb-1">Osoba kontaktowa</h6>
+            <div class="mb-2">
+                <small class="text-muted d-block">Imię i Nazwisko:</small>
+                <span class="fw-bold">{{ supplier.representative|default:"—" }}</span>
+            </div>
+            <div class="mb-2">
+                <small class="text-muted d-block">E-mail do zamówień:</small>
+                {% if supplier.email %}
+                    <a href="mailto:{{ supplier.email }}" class="text-decoration-none">{{ supplier.email }}</a>
+                {% else %}
+                    <span class="text-muted">—</span>
+                {% endif %}
+            </div>
+            <div class="mb-0">
+                <small class="text-muted d-block">Telefon:</small>
+                <span>{{ supplier.phone|default:"—" }}</span>
+            </div>
         </div>
     </div>
 
-    <h6 class="border-bottom pb-2 mb-3 d-flex justify-content-between align-items-center">
-        <span>Produkty oferowane przez dostawcę</span>
-        <span class="badge bg-secondary rounded-pill">{{ supplier.product_mappings.count }}</span>
-    </h6>
+    <div class="mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="text-primary small text-uppercase fw-bold mb-0">
+                <i class="bi bi-box-seam me-2"></i>Aktualny asortyment
+            </h6>
+            <span class="badge bg-secondary rounded-pill">{{ supplier.product_mappings.count }} poz.</span>
+        </div>
 
-    <div class="list-group list-group-flush border rounded shadow-sm" style="max-height: 400px; overflow-y: auto;">
-        {% for mapping in supplier.product_mappings.all %}
-            <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3">
-                <div class="me-auto">
-                    <div class="fw-bold text-dark">{{ mapping.product.name }}</div>
-                    <div class="d-flex gap-3">
-                        <small class="text-muted">
-                            <i class="bi bi-tag me-1"></i>SKU: <strong>{{ mapping.supplier_sku|default:"---" }}</strong>
-                        </small>
-                        <small class="text-muted">
-                            <i class="bi bi-percent me-1"></i>VAT: {{ mapping.product.vat_rate }}%
-                        </small>
-                    </div>
-                </div>
-                <div class="text-end">
-                    <span class="badge {% if mapping.product.total_stock <= mapping.product.min_threshold %}bg-danger{% else %}bg-success{% endif %} rounded-pill px-3">
-                        Stan: {{ mapping.product.total_stock }}
-                    </span>
-                </div>
+        <div class="border rounded bg-white overflow-hidden shadow-sm">
+            <div class="table-responsive" style="max-height: 350px;">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3 py-2">Produkt</th>
+                            <th>Kod SKU u dostawcy</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mapping in supplier.product_mappings.all %}
+                        <tr>
+                            <td class="ps-3 py-2">
+                                <div class="fw-bold">{{ mapping.product.name }}</div>
+                                <div class="text-muted tiny" style="font-size: 0.7rem;">ID: {{ mapping.product.id|stringformat:".8s" }}...</div>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border fw-normal px-2">
+                                    {{ mapping.supplier_sku|default:"Brak kodu SKU" }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" class="text-center py-5 text-muted small">
+                                <i class="bi bi-info-circle d-block mb-2 fs-4"></i>
+                                Ten dostawca nie ma jeszcze przypisanych produktów.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-        {% empty %}
-            <div class="text-center py-5 text-muted bg-light border-top-0">
-                <i class="bi bi-box-seam display-4 d-block mb-2 opacity-25"></i>
-                <p class="mb-0">Brak przypisanych produktów dla tego dostawcy.</p>
-                <small>Kliknij "Edytuj asortyment", aby dodać produkty.</small>
-            </div>
-        {% endfor %}
+        </div>
     </div>
 </div>
 
 <div class="modal-footer bg-light border-top">
+    <button class="btn btn-outline-primary btn-sm me-auto"
+            hx-get="{% url 'supplier_edit' supplier.id %}"
+            hx-target="#modal-content">
+        <i class="bi bi-pencil me-1"></i> Edytuj dostawcę
+    </button>
     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
 </div>
+
+<style>
+    @media (min-width: 768px) {
+        .border-start-md { border-left: 1px solid #dee2e6 !important; }
+    }
+</style>

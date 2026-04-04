@@ -9,10 +9,33 @@ from inventory.models import Product, ProductSupplier
 
 @login_required
 def supplier_list(request):
-    suppliers = Supplier.objects.filter(tenant=request.user.tenant).order_by('name')
+    search_query = request.GET.get('q', '')
+    sort_by = request.GET.get('sort', 'name')  # Domyślnie sortujemy po nazwie
+
+    # Podstawowy QuerySet dla Tenanta
+    suppliers = Supplier.objects.filter(tenant=request.user.tenant)
+
+    # Wyszukiwanie po nazwie
+    if search_query:
+        suppliers = suppliers.filter(name__icontains=search_query)
+
+    # Sortowanie
+    # Zabezpieczamy przed nieprawidłowymi polami, sprawdzając czy pole istnieje w modelu
+    allowed_sort_fields = ['name', '-name', 'nip', '-nip', 'representative', '-representative', 'created', '-created']
+    if sort_by not in allowed_sort_fields:
+        sort_by = 'name'
+
+    suppliers = suppliers.order_by(sort_by)
+
+    context = {
+        'suppliers': suppliers,
+        'q': search_query,
+        'sort': sort_by
+    }
+
     if request.headers.get('HX-Request'):
-        return render(request, 'suppliers/partials/supplier_table.html', {'suppliers': suppliers})
-    return render(request, 'suppliers/supplier_list.html', {'suppliers': suppliers})
+        return render(request, 'suppliers/partials/supplier_table.html', context)
+    return render(request, 'suppliers/supplier_list.html', context)
 
 
 @login_required
