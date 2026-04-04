@@ -6,9 +6,6 @@ urlpatterns = [
     path('create/', views.order_create, name='order_create'),
     path('edit/<uuid:pk>/', views.order_edit, name='order_edit'),
     path('delete/<uuid:pk>/', views.order_delete, name='order_delete'),
-    path('preview/<uuid:pk>/', views.order_preview, name='order_preview'),
-    # path('<uuid:pk>/copy/', views.order_copy, name='order_copy'),
-    # path('count/', views.order_count, name='order_count'),
-    path('order_bulk_delete/', views.order_bulk_delete, name='order_bulk_delete'),
     path('get-options/', views.get_filtered_options, name='get_filtered_options'),
+    path('status-update/<uuid:pk>/', views.order_status_update, name='order_status_update'),
 ]

@@ -1,0 +1,15 @@
+<div class="modal-header bg-danger text-white">
+    <h5 class="modal-title">Potwierdź usunięcie</h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body p-4 text-center">
+    <p>Czy na pewno chcesz usunąć zamówienie <strong>#{{ order.order_number }}</strong>?</p>
+    <p class="text-muted small text-uppercase">{{ order.product_name_snapshot }}</p>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Anuluj</button>
+    <button type="button" class="btn btn-danger"
+            hx-post="{% url 'order_delete' order.id %}"
+            hx-target="#modal-content"
+            data-bs-dismiss="modal">Usuń trwale</button>
+</div>

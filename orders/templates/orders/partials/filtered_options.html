@@ -1,13 +1,17 @@
 {% if suppliers %}
     <option value="">---------</option>
     {% for s in suppliers %}
-        <option value="{{ s.id }}">{{ s.name }}</option>
+        <option value="{{ s.id }}" {% if s.id|stringformat:"s" == selected_supplier %}selected{% endif %}>
+            {{ s.name }}
+        </option>
     {% endfor %}
 {% endif %}
 
 {% if products %}
     <option value="">---------</option>
     {% for p in products %}
-        <option value="{{ p.id }}">{{ p.name }}</option>
+        <option value="{{ p.id }}" {% if p.id|stringformat:"s" == selected_product %}selected{% endif %}>
+            {{ p.name }}
+        </option>
     {% endfor %}
 {% endif %}

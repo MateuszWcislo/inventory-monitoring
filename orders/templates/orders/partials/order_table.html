@@ -1,69 +1,171 @@
-<div class="table-responsive bg-white rounded shadow-sm border">
-    <table class="table table-hover align-middle mb-0">
-        <thead class="table-light">
+<style>
+    /* Customowe style dla lepszej czytelności */
+    .order-table thead th {
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.75rem;
+        padding: 12px 8px;
+    }
+    .order-table {
+        table-layout: auto !important;
+        width: 100%;
+    }
+    .order-table tbody td {
+        padding: 14px 8px;
+        font-size: 0.95rem; /* Zwiększona czcionka dla głównej treści */
+    }
+    .text-small-muted {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    .badge-status {
+        font-weight: 600;
+        padding: 6px 12px;
+        font-size: 0.75rem;
+    }
+    /* Kontrola szerokości kolumn, by nie "pływały" */
+    .col-id { width: 85px; }
+    .col-product { width: auto; min-width: 250px; }
+    .col-supplier { width: 15%; }
+    .col-qty { width: 110px; }
+    .col-price { width: 130px; }
+    .col-status { width: 130px; }
+    .col-actions { width: 140px; }
+</style>
+
+<div class="table-responsive bg-white rounded-3 shadow-sm border">
+    <table class="table table-hover align-middle mb-0 order-table">
+        <thead class="table-light border-bottom">
             <tr>
-                <th>Data</th>
-                <th>Produkt (Snapshot)</th>
-                <th class="text-center">Stan / Limit</th>
-                <th>Dostawca / SKU</th>
-                <th>Ilość</th>
-                <th>Cena (Netto / Brutto)</th> <th>Status</th>
-                <th class="text-end">Akcje</th>
+                <th class="col-id text-center">Zamówienie</th>
+                <th class="col-product">Produkt</th>
+                <th class="col-supplier">Dostawca</th>
+                <th class="text-center" style="width: 110px;">Data utworzenia</th>
+                <th class="col-qty text-center">Ilość <br><span class="fw-normal text-lowercase">(Stan/limit)</span></th>
+                <th class="col-price text-end">Wartość <br><span class="fw-normal text-lowercase">(netto / brutto)</span></th>
+                <th class="col-status text-center">Status</th>
+                <th class="col-actions text-end pe-4">Akcje</th>
             </tr>
         </thead>
-        <tbody>
-            {% for o in orders %}
-            <tr>
-                <td class="small text-muted">{{ o.created_at|date:"d.m.Y H:i" }}</td>
-                <td class="fw-bold">{{ o.product_name_snapshot }}</td>
+        <tbody id="order-table-body">
+            {% csrf_token %}
+            {% for order in orders %}
+            <tr class="{% if order.status == 'CREATED' and order.order_type == 'AUTO' %}table-info bg-opacity-10{% endif %}">
+
                 <td class="text-center">
-                    {% if o.product %}
-                        <span class="{% if o.product.total_stock <= o.product.min_threshold %}text-danger fw-bold{% endif %}">
-                            {{ o.product.total_stock }}
-                        </span>
-                        <span class="text-muted mx-1">/</span>
-                        <span class="small">{{ o.product.min_threshold }}</span>
-                    {% else %}
-                        <span class="text-muted small italic text-decoration-line-through">Produkt usunięty</span>
-                    {% endif %}
+                    <div class="fw-bold text-dark">#{{ order.order_number }}</div>
+                    <span class="badge {% if order.order_type == 'AUTO' %}bg-info text-info{% else %}bg-light text-secondary{% endif %} bg-opacity-10 border small px-2 py-1" style="font-size: 0.65rem;">
+                        {{ order.get_order_type_display|upper }}
+                    </span>
                 </td>
-                <td>
-                    <div class="small">{{ o.supplier.name|default:"—" }}</div>
-                    <code class="text-primary small">{{ o.supplier_sku_snapshot|default:"—" }}</code>
-                </td>
-                <td><span class="fw-bold">{{ o.quantity }}</span> <small class="text-muted">szt.</small></td>
 
                 <td>
-                    <div class="d-flex flex-column">
-                        <span class="fw-bold text-dark">{{ o.net_price }} <small>netto</small></span>
-                        <span class="text-muted small">{{ o.gross_price|default:"—" }} <small>brutto</small></span>
+                    <div class="fw-bold text-dark" style="font-size: 1rem;">{{ order.product_name_snapshot }}</div>
+                    <div class="text-small-muted">SKU: {{ order.supplier_sku_snapshot|default:"---" }}</div>
+                </td>
+
+                <td>
+                    {% if order.supplier %}
+                        <div class="fw-semibold text-dark">{{ order.supplier.name }}</div>
+                        <div class="text-small-muted small italic">tel. {{ order.supplier.phone }}</div>
+                    {% else %}
+                        <span class="text-muted italic small">Nieprzypisany</span>
+                    {% endif %}
+                </td>
+
+                <td class="text-center">
+                    <div class="text-dark">{{ order.created_at|date:"d.m.Y" }}</div>
+                    <div class="text-small-muted">{{ order.created_at|date:"H:i" }}</div>
+                </td>
+
+                <td class="text-center">
+                    <div class="fs-5 fw-bold text-dark">{{ order.quantity }}</div>
+                    <div class="text-small-muted">
+                        {% if order.product %}
+                            <span class="{% if order.product.total_stock < order.product.min_threshold %}text-danger fw-bold{% endif %}">
+                                {{ order.product.total_stock }}
+                            </span> / {{ order.product.min_threshold }}
+                        {% else %}
+                            ---
+                        {% endif %}
                     </div>
                 </td>
 
-                <td>
-                    <span class="badge {% if o.status == 'CREATED' %}bg-secondary{% elif o.status == 'ORDERED' %}bg-warning text-dark{% elif o.status == 'COMPLETED' %}bg-success{% else %}bg-danger{% endif %}">
-                        {{ o.get_status_display }}
-                    </span>
-                </td>
                 <td class="text-end">
-                    <button class="btn btn-sm btn-link text-decoration-none"
-                            hx-get="{% url 'order_preview' o.id %}" hx-target="#modal-content"
-                            data-bs-toggle="modal" data-bs-target="#productModal">
-                        <i class="bi bi-eye"></i>
-                    </button>
+                    <div class="text-dark">{{ order.net_price }} PLN</div>
+                    <div class="fw-bold text-primary" style="font-size: 1.05rem;">{{ order.gross_price }} PLN</div>
                 </td>
+
+                <td class="text-center">
+                    {% if order.status == 'CREATED' %}
+                        <span class="badge badge-status rounded-pill bg-warning text-dark">UTWORZONE</span>
+                    {% elif order.status == 'ORDERED' %}
+                        <span class="badge badge-status rounded-pill bg-primary text-white">ZAMÓWIONE</span>
+                    {% elif order.status == 'COMPLETED' %}
+                        <span class="badge badge-status rounded-pill bg-success text-white">ZAKOŃCZONE</span>
+                    {% elif order.status == 'CANCELLED' %}
+                        <span class="badge badge-status rounded-pill bg-danger text-white opacity-75">ANULOWANE</span>
+                    {% endif %}
+                </td>
+
+<td class="text-end pe-4">
+    {% if order.status != 'COMPLETED' and order.status != 'CANCELLED' %}
+        <div class="btn-group shadow-sm border rounded bg-white">
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-sm btn-white dropdown-toggle border-end" data-bs-toggle="dropdown">
+                    <i class="bi bi-arrow-repeat text-primary"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                    <li><h6 class="dropdown-header small uppercase">Zarządzaj statusem</h6></li>
+
+                    {% if order.status == 'CREATED' %}
+                    <li><button class="dropdown-item py-2" hx-post="{% url 'order_status_update' order.id %}" hx-vals='{"status": "ORDERED"}' hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-swap="none">✅ Oznacz: Zamówione</button></li>
+                    {% endif %}
+
+                    {% if order.status == 'ORDERED' %}
+                    <li><button class="dropdown-item py-2 text-success fw-bold" hx-post="{% url 'order_status_update' order.id %}" hx-vals='{"status": "COMPLETED"}' hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-swap="none">📥 Odbierz do magazynu</button></li>
+                    {% endif %}
+
+                    <li><hr class="dropdown-divider"></li>
+                    <li><button class="dropdown-item py-2 text-danger" hx-post="{% url 'order_status_update' order.id %}" hx-vals='{"status": "CANCELLED"}' hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-swap="none">❌ Anuluj zamówienie</button></li>
+                </ul>
+            </div>
+
+            <button class="btn btn-sm btn-white border-end"
+                    hx-get="{% url 'order_edit' order.id %}"
+                    hx-target="#modal-content"
+                    data-bs-toggle="modal"
+                    data-bs-target="#orderModal"
+                    title="Edytuj dane">
+                <i class="bi bi-pencil-square text-secondary"></i>
+            </button>
+
+            {% if order.status == 'CREATED' %}
+            <button class="btn btn-sm btn-white text-danger"
+                    hx-get="{% url 'order_delete' order.id %}"
+                    hx-target="#modal-content"
+                    data-bs-toggle="modal"
+                    data-bs-target="#orderModal"
+                    title="Usuń">
+                <i class="bi bi-trash3"></i>
+            </button>
+            {% endif %}
+        </div>
+    {% else %}
+        <span class="text-muted small italic pe-2"><i class="bi bi-lock-fill me-1"></i>Zarchiwizowane</span>
+    {% endif %}
+</td>
             </tr>
             {% empty %}
-            <tr><td colspan="8" class="text-center py-5 text-muted">Brak zamówień w bazie.</td></tr>
+            <tr>
+                <td colspan="9" class="text-center py-5">
+                    <div class="text-muted mb-2"><i class="bi bi-inbox fs-1"></i></div>
+                    <div class="text-secondary fw-bold">Nie znaleziono zamówień</div>
+                    <div class="text-muted small">Zmień filtry lub utwórz nowe zamówienie ręcznie.</div>
+                </td>
+            </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
-
-<script>
-    // Prosty skrypt do zaznaczania wszystkich checkboxów
-    document.getElementById('check-all')?.addEventListener('change', function(e) {
-        const checkboxes = document.querySelectorAll('.order-checkbox');
-        checkboxes.forEach(cb => cb.checked = e.target.checked);
-    });
-</script>

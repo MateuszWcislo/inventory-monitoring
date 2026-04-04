@@ -10,42 +10,52 @@ class OrderForm(forms.ModelForm):
         model = Order
         fields = ['product', 'supplier', 'quantity', 'net_price', 'gross_price', 'order_type', 'status']
         widgets = {
-            'order_type': forms.HiddenInput(),  # Ukryte pole
-            'product': forms.Select(attrs={'class': 'form-select', 'onchange': 'updateVatRate(this)'}),
+            'order_type': forms.HiddenInput(),
             'status': forms.Select(attrs={'class': 'form-select'}),
-            'supplier': forms.Select(attrs={'class': 'form-select'}),
         }
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
-        # Atrybuty HTMX dla Produktu (aktualizuje Dostawcę)
-        self.fields['product'].widget.attrs.update({
+        # 1. Atrybuty HTMX dla Produktu
+        # Dodajemy 'hx-include': '#id_supplier', aby nie zgubić wybranego dostawcy
+        self.fields['product'].widget = forms.Select(attrs={
+            'class': 'form-select',
             'hx-get': reverse('get_filtered_options'),
             'hx-target': '#id_supplier',
+            'hx-include': '#id_supplier',  # KLUCZOWE: dołącza wartość dostawcy do requesta
             'hx-trigger': 'change',
-            'onchange': 'updateVatRate(this)'  # Twoja funkcja od VAT
+            'onchange': 'updateVatRate(this)'
         })
 
-        # Atrybuty HTMX dla Dostawcy (aktualizuje Produkt)
-        self.fields['supplier'].widget.attrs.update({
+        # 2. Atrybuty HTMX dla Dostawcy
+        # Dodajemy 'hx-include': '#id_product', aby nie zgubić wybranego produktu
+        self.fields['supplier'].widget = forms.Select(attrs={
+            'class': 'form-select',
             'hx-get': reverse('get_filtered_options'),
             'hx-target': '#id_product',
+            'hx-include': '#id_product',  # KLUCZOWE: dołącza wartość produktu do requesta
             'hx-trigger': 'change'
         })
 
-        # Stylizacja i Querysety
+        # 3. Stylizacja pozostałych pól
         for name, field in self.fields.items():
-            field.widget.attrs.update({'class': 'form-control' if name not in ['product', 'supplier', 'order_type',
-                                                                               'status'] else 'form-select'})
+            if name not in ['product', 'supplier', 'order_type', 'status']:
+                field.widget.attrs.update({'class': 'form-control'})
 
+        # 4. Querysety i dane dla Tenanta
         if self.user:
-            self.fields['product'].queryset = Product.objects.filter(tenant=self.user.tenant)
+            tenant_products = Product.objects.filter(tenant=self.user.tenant)
+            self.fields['product'].queryset = tenant_products
             self.fields['supplier'].queryset = Supplier.objects.filter(tenant=self.user.tenant)
-            # Słownik VAT dla JS
-            self.product_vats = {str(p.id): float(p.vat_rate) for p in Product.objects.filter(tenant=self.user.tenant)}
 
+            # Słownik VAT dla JS
+            self.product_vats = {str(p.id): float(p.vat_rate) for p in tenant_products}
+
+        # Domyślny typ dla nowych zamówień ręcznych
+        if not self.instance.pk:
+            self.fields['order_type'].initial = 'MANUAL'
 
     def clean(self):
         cleaned_data = super().clean()
@@ -59,16 +69,13 @@ class OrderForm(forms.ModelForm):
             ).order_by('-created_at').first()
 
             if last_order:
-                # Jeśli użytkownik zostawił puste, dociągamy z historii
                 if not cleaned_data.get('net_price'):
                     cleaned_data['net_price'] = last_order.net_price
                 if not cleaned_data.get('gross_price'):
                     cleaned_data['gross_price'] = last_order.gross_price
                 if not cleaned_data.get('supplier'):
                     cleaned_data['supplier'] = last_order.supplier
-            # Jeśli last_order nie istnieje, zostawiamy puste zgodnie z Twoją prośbą
 
-        # Walidacja dla MANUAL - tutaj cena i ilość muszą być
         if order_type == 'MANUAL':
             if not cleaned_data.get('net_price') and not cleaned_data.get('gross_price'):
                 self.add_error('net_price', 'Dla zamówienia ręcznego podaj cenę.')

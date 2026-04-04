@@ -1,39 +1,56 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div class="search-box d-flex gap-2 w-75">
-        <div class="input-group w-50">
-            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
-            <input type="text" name="q" class="form-control border-start-0"
-                   placeholder="Szukaj produktu lub dostawcy..."
-                   hx-get="{% url 'order_list' %}"
-                   hx-trigger="keyup changed delay:500ms"
-                   hx-target="#order-table-container"
-                   hx-include="[name='status']">
+<div class="container py-4"> <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="search-box d-flex gap-2 flex-grow-1" style="max-width: 600px;">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                <input type="text" name="q" class="form-control border-start-0"
+                       placeholder="Szukaj produktu..."
+                       hx-get="{% url 'order_list' %}"
+                       hx-trigger="keyup changed delay:500ms"
+                       hx-target="#order-table-container"
+                       hx-include="[name='status']">
+            </div>
+
+            <select name="status" class="form-select w-auto"
+                    hx-get="{% url 'order_list' %}"
+                    hx-target="#order-table-container"
+                    hx-include="[name='q']">
+                <option value="">Wszystkie statusy</option>
+                {% for val, label in status_choices %}
+                    <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
         </div>
 
-        <select name="status" class="form-select w-25"
-                hx-get="{% url 'order_list' %}"
-                hx-target="#order-table-container"
-                hx-include="[name='q']">
-            <option value="">Wszystkie statusy</option>
-            {% for val, label in status_choices %}
-                <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-        </select>
+        <button class="btn btn-primary shadow-sm"
+                hx-get="{% url 'order_create' %}"
+                hx-target="#modal-content"
+                data-bs-toggle="modal"
+                data-bs-target="#orderModal">
+            <i class="bi bi-plus-lg me-2"></i>Nowe zamówienie
+        </button>
     </div>
 
-    <button class="btn btn-primary"
-            hx-get="{% url 'order_create' %}"
-            hx-target="#modal-content"
-            data-bs-toggle="modal"
-            data-bs-target="#productModal">
-        <i class="bi bi-plus-lg me-2"></i>Nowe zamówienie
-    </button>
+    <div id="order-table-container" hx-get="{% url 'order_list' %}" hx-trigger="ordersChanged from:body">
+        {% include 'orders/partials/order_table.html' %}
+    </div>
+
 </div>
 
-<div id="order-table-container" hx-get="{% url 'order_list' %}" hx-trigger="ordersChanged from:body">
-    {% include 'orders/partials/order_table.html' %}
+<div class="modal fade" id="orderModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div id="modal-content" class="modal-content border-0 shadow">
+            </div>
+    </div>
 </div>
+
+<script>
+    document.body.addEventListener('ordersChanged', function() {
+        const modalElement = document.getElementById('orderModal');
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        if (modal) modal.hide();
+    });
+</script>
 {% endblock %}

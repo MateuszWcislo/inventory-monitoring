@@ -6,8 +6,7 @@
     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
 </div>
 
-<form hx-post="{% if form.instance.pk %}{% url 'order_edit' form.instance.id %}{% else %}{% url 'order_create' %}{% endif %}">
-    {% csrf_token %}
+<form hx-post="{% if order.id %}{% url 'order_edit' order.id %}{% else %}{% url 'order_create' %}{% endif %}">    {% csrf_token %}
     {{ form.order_type }} <div class="modal-body p-4 bg-light">
         <div class="row g-3">
             <div class="col-md-8">
@@ -54,54 +53,64 @@
 
     <div class="modal-footer bg-white px-4">
         <button type="button" class="btn btn-link text-muted text-decoration-none" data-bs-dismiss="modal">Anuluj</button>
-        <button type="submit" class="btn btn-primary px-4 shadow-sm" data-bs-dismiss="modal">Zapisz zamówienie</button>
+        <button type="submit" class="btn btn-primary px-4 shadow-sm">Zapisz zamówienie</button>
     </div>
 </form>
 
 <script>
-    // Nasłuchuj na zdarzenie htmx:afterOnLoad, aby zaktualizować VAT,
-    // gdy HTMX podmieni listę produktów po wyborze dostawcy
-    document.body.addEventListener('htmx:afterOnLoad', function(evt) {
-        if (evt.detail.target.id === 'id_product') {
-            updateVatRate(document.getElementById('id_product'));
+    // Funkcja inicjalizująca logikę formularza
+    (function() {
+        const productSelect = document.getElementById('id_product');
+        const netInput = document.getElementById('id_net_price');
+        const grossInput = document.getElementById('id_gross_price');
+        const vatSpan = document.getElementById('current-vat');
+
+        // Mapa stawek VAT przekazana z Formularza
+        const productVats = {{ form.product_vats|safe|default:"{}" }};
+        let activeVat = 0;
+
+        function updateVatRate() {
+            const productId = productSelect.value;
+            activeVat = parseFloat(productVats[productId]) || 0;
+            if (vatSpan) vatSpan.innerText = activeVat;
         }
-    });
 
-    // Mapa stawek VAT z Pythona do JS
-    const productVats = {{ form.product_vats|safe }};
-    let activeVat = 0;
-
-    function updateVatRate(selectElement) {
-        const productId = selectElement.value;
-        activeVat = productVats[productId] || 0;
-        document.getElementById('current-vat').innerText = activeVat;
-
-        // Jeśli ceny były już wpisane, przelicz je po zmianie produktu
-        recalculateFromNet();
-    }
-
-    const netInput = document.getElementById('id_net_price');
-    const grossInput = document.getElementById('id_gross_price');
-
-    function recalculateFromNet() {
-        if (netInput.value) {
+        function recalculateFromNet() {
             const net = parseFloat(netInput.value);
-            const gross = net * (1 + activeVat / 100);
-            grossInput.value = gross.toFixed(2);
+            if (!isNaN(net)) {
+                const gross = net * (1 + activeVat / 100);
+                grossInput.value = gross.toFixed(2);
+            }
         }
-    }
 
-    function recalculateFromGross() {
-        if (grossInput.value) {
+        function recalculateFromGross() {
             const gross = parseFloat(grossInput.value);
-            const net = gross / (1 + activeVat / 100);
-            netInput.value = net.toFixed(2);
+            if (!isNaN(gross)) {
+                const net = gross / (1 + activeVat / 100);
+                netInput.value = net.toFixed(2);
+            }
         }
-    }
 
-    netInput.addEventListener('input', recalculateFromNet);
-    grossInput.addEventListener('input', recalculateFromGross);
+        // Eventy dla pól cen
+        netInput.addEventListener('input', recalculateFromNet);
+        grossInput.addEventListener('input', recalculateFromGross);
 
-    // Inicjalizacja przy otwarciu (jeśli produkt jest już wybrany)
-    window.addEventListener('load', () => updateVatRate(document.getElementById('id_product')));
+        // Event dla zmiany produktu
+        productSelect.addEventListener('change', function() {
+            updateVatRate();
+            recalculateFromNet(); // Przelicz brutto na podstawie nowego VATu
+        });
+
+        // INICJALIZACJA NATYCHMIASTOWA (dla HTMX)
+        // Wykonujemy od razu po wstrzyknięciu kodu do DOM
+        updateVatRate();
+
+        // Obsługa specyficzna dla Twojego filtrowania produktów (HTMX hx-get na liście produktów)
+        document.body.addEventListener('htmx:afterOnLoad', function(evt) {
+            // Jeśli element, który właśnie został podmieniony to nasz select produktu
+            if (evt.detail.target.id === 'id_product') {
+                updateVatRate();
+            }
+        });
+    })();
 </script>
