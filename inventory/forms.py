@@ -5,12 +5,13 @@ from .models import Product, ProductSupplier, ProductBatch
 class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
-        fields = ['name', 'description', 'vat_rate', 'min_threshold', 'is_favourite']
+        fields = ['name', 'description', 'vat_rate', 'min_threshold', 'target_stock', 'is_favourite']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
             'vat_rate': forms.NumberInput(attrs={'class': 'form-control', 'id': 'id_vat_rate','step': '0.01'}),
             'min_threshold': forms.NumberInput(attrs={'class': 'form-control'}),
+            'target_stock': forms.NumberInput(attrs={'class': 'form-control'}),
             'is_favourite': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
@@ -19,6 +20,18 @@ class ProductForm(forms.ModelForm):
         # Jeśli to nowy formularz (brak instance.pk), ustaw 23.00
         if not self.instance.pk:
             self.fields['vat_rate'].initial = 23.00
+
+    def clean(self):
+        cleaned_data = super().clean()
+        min_val = cleaned_data.get("min_threshold")
+        target_val = cleaned_data.get("target_stock")
+
+        # Walidacja: Target nie może być mniejszy niż Min
+        if target_val is not None and min_val is not None:
+            if target_val < min_val:
+                self.add_error('target_stock', "Stan docelowy nie może być mniejszy niż próg minimalny.")
+
+        return cleaned_data
 
 SupplierFormSet = inlineformset_factory(
     Product,

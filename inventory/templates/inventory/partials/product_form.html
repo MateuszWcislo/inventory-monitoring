@@ -34,6 +34,14 @@
             <label class="form-label fw-bold small text-danger">Próg alarmowy (Min)</label>
             {{ form.min_threshold }}
         </div>
+        <div class="col-md-6">
+            <label class="form-label small fw-bold text-secondary">Stan docelowy (Target)</label>
+            {{ form.target_stock }}
+            <div class="form-text mt-0" style="font-size: 0.7rem;">Domyślnie równy progu min.</div>
+            {% if form.target_stock.errors %}
+                <div class="text-danger small">{{ form.target_stock.errors.0 }}</div>
+            {% endif %}
+        </div>
         <div class="col-md-6 d-flex align-items-center mt-auto">
             <div class="form-check form-switch mt-4">
                 {{ form.is_favourite }}

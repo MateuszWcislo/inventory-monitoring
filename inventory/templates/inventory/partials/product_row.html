@@ -42,7 +42,7 @@
         <span class="fs-5 fw-bold {% if p.total_stock < p.min_threshold %}text-danger{% endif %}">
             {{ p.total_stock }}
         </span>
-        <div class="text-muted small">min: {{ p.min_threshold }}</div>
+        <div class="text-muted small">min: {{ p.min_threshold }}, cel: {{ p.target_stock }}</div>
     </td>
 
     <td class="text-center">{{ p.vat_rate }}</td>

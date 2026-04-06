@@ -1,8 +1,8 @@
 import uuid
 from django.db import models
+from django.db.models import Sum
 from decimal import Decimal, ROUND_HALF_UP
 from suppliers.models import Supplier
-
 
 class Product(models.Model):
     id = models.UUIDField(default=uuid.uuid4, unique=True, primary_key=True, editable=False)
@@ -13,6 +13,7 @@ class Product(models.Model):
     description = models.TextField(blank=True, null=True, verbose_name="Opis")
     vat_rate = models.DecimalField(max_digits=5, decimal_places=2, default=23.00, verbose_name="VAT %")
     min_threshold = models.IntegerField(default=5, verbose_name="Próg alarmowy (Limit)")
+    target_stock = models.IntegerField(null=True, blank=True, verbose_name="Stan docelowy")
     is_favourite = models.BooleanField(default=False, verbose_name="Ulubiony")
     created = models.DateTimeField(auto_now_add=True)
 
@@ -21,10 +22,24 @@ class Product(models.Model):
         """Oblicza sumaryczny stan ze wszystkich partii."""
         return self.batches.aggregate(models.Sum('current_stock'))['current_stock__sum'] or 0
 
+    def get_virtual_stock(self):
+        """Stan fizyczny + to, co jest już zamówione/utworzone."""
+        actual = self.total_stock
+        # Zakładamy, że model Order ma pole 'product' (ForeignKey)
+        pending = self.orders.filter(
+            status__in=['CREATED', 'ORDERED']
+        ).aggregate(Sum('quantity'))['quantity__sum'] or 0
+
+        return actual + pending
+
     def save(self, *args, **kwargs):
         if not self.local_id:
             max_num = Product.objects.filter(tenant=self.tenant).aggregate(models.Max('local_id'))['local_id__max']
             self.local_id = (max_num or 0) + 1
+        # Jeśli użytkownik nie podał target_stock, ustawiamy go na równi z min_threshold
+        if self.target_stock is None:
+            self.target_stock = self.min_threshold
+
         super().save(*args, **kwargs)
 
     def active_batches(self):
@@ -51,6 +66,8 @@ class ProductBatch(models.Model):
     gross_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00,
                                       null=True, blank=True, verbose_name="Cena brutto")
     created_at = models.DateTimeField(auto_now_add=True)
+
+    processed_orders = models.ManyToManyField('orders.Order', blank=True)
 
     def save(self, *args, **kwargs):
         # Logika przeliczania cen w obie strony

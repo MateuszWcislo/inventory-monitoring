@@ -1,46 +1,81 @@
-<div class="modal-header">
-    <h5 class="modal-title">Dodaj do zamówienia: {{ product.name }}</h5>
-    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<div class="modal-header bg-dark text-white px-4">
+    <h5 class="modal-title d-flex align-items-center text-uppercase fs-6 fw-bold">
+        <i class="bi bi-cart-plus me-2 text-primary"></i>
+        Szybkie zamówienie: {{ product.name }}
+    </h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
 </div>
+
 <form hx-post="{% url 'add_to_order_save' product.id %}"
       hx-on::after-request="bootstrap.Modal.getInstance(document.getElementById('productModal')).hide()">
     {% csrf_token %}
-    <div class="modal-body">
-        <div class="mb-3">
-            <label class="form-label fw-bold">Wybierz docelowe zamówienie</label>
-            <select name="order_id" class="form-select" required>
-                <optgroup label="Utwórz nowe zamówienie dla...">
-                    {% for s in product_suppliers %}
-                        <option value="new_{{ s.id }}">+ Nowe zamówienie: {{ s.name }}</option>
-                    {% empty %}
-                        <option disabled>Brak przypisanych dostawców do produktu</option>
-                    {% endfor %}
-                </optgroup>
 
-                {% if open_orders %}
-                <optgroup label="Istniejące otwarte zamówienia">
-                    {% for o in open_orders %}
-                        <option value="{{ o.id }}">
-                            #{{ o.number }} - {{ o.supplier.name }} (z dnia {{ o.created_at|date:"d.m.Y H:i" }})
+    <div class="modal-body p-4 bg-light">
+        <div class="row g-3">
+            <div class="col-12">
+                <label class="form-label small fw-bold text-secondary">Dostawca</label>
+                <select name="supplier_id" class="form-select" required>
+                    {% for s in suppliers %}
+                        <option value="{{ s.id }}" {% if s == default_supplier %}selected{% endif %}>
+                            {{ s.name }}
                         </option>
+                    {% empty %}
+                        <option value="">-- Brak przypisanych dostawców --</option>
                     {% endfor %}
-                </optgroup>
-                {% endif %}
-            </select>
-        </div>
+                </select>
+            </div>
 
-        <div class="mb-3">
-            <label class="form-label fw-bold">Ilość</label>
-            <div class="input-group">
+            <div class="col-md-4">
+                <label class="form-label small fw-bold text-secondary">Ilość</label>
                 <input type="number" name="quantity" value="1" min="1" class="form-control" required>
-                <span class="input-group-text">szt.</span>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label small fw-bold text-success">Cena Netto</label>
+                <div class="input-group">
+                    <input type="number" name="net_price" id="id_net_price"
+                           value="{{ last_order.net_price|default:0|stringformat:'.2f' }}"
+                           step="0.01" class="form-control" required>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label small fw-bold text-primary">Cena Brutto</label>
+                <div class="input-group">
+                    <input type="number" name="gross_price" id="id_gross_price"
+                           value="{{ last_order.gross_price|default:0|stringformat:'.2f' }}"
+                           step="0.01" class="form-control" required>
+                </div>
             </div>
         </div>
     </div>
-    <div class="modal-footer">
-        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Anuluj</button>
-        <button type="submit" class="btn btn-success">
-            <i class="bi bi-plus-circle me-1"></i> Potwierdź dodanie
+
+    <div class="modal-footer bg-white">
+        <button type="button" class="btn btn-link text-muted text-decoration-none" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" class="btn btn-primary px-4 shadow-sm">
+            <i class="bi bi-plus-lg me-1"></i> Utwórz zamówienie
         </button>
     </div>
 </form>
+
+<script>
+    (function() {
+        const netInput = document.getElementById('id_net_price');
+        const grossInput = document.getElementById('id_gross_price');
+        const vatRate = {{ product.vat_rate|default:23 }};
+
+        netInput.addEventListener('input', () => {
+            const net = parseFloat(netInput.value);
+            if (!isNaN(net)) {
+                grossInput.value = (net * (1 + vatRate / 100)).toFixed(2);
+            }
+        });
+
+        grossInput.addEventListener('input', () => {
+            const gross = parseFloat(grossInput.value);
+            if (!isNaN(gross)) {
+                netInput.value = (gross / (1 + vatRate / 100)).toFixed(2);
+            }
+        });
+    })();
+</script>

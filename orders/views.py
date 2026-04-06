@@ -153,36 +153,26 @@ def update_inventory_stock(order, tenant):
     order.product.save()
 
 
+# orders/views.py
 @login_required
 @require_POST
 def order_status_update(request, pk):
     order = get_object_or_404(Order, pk=pk, tenant=request.user.tenant)
     new_status = request.POST.get('status')
 
-    if new_status in dict(Order.STATUS_CHOICES):
-        old_status = order.status
+    # Definiujemy dozwolone przejścia dla bezpieczeństwa
+    allowed_transitions = {
+        'CREATED': ['ORDERED', 'COMPLETED', 'CANCELLED'],
+        'ORDERED': ['COMPLETED', 'CANCELLED'],
+        'COMPLETED': [],  # Zakończonych zazwyczaj nie zmieniamy szybko
+        'CANCELLED': ['CREATED'],  # Możliwość przywrócenia do szkicu
+    }
+
+    if new_status in allowed_transitions.get(order.status, []):
         order.status = new_status
-
-        if new_status == 'COMPLETED' and old_status != 'COMPLETED':
-            # DOPASOWANIE PÓL: net_price zamiast purchase_price,
-            # current_stock zamiast quantity (sprawdź to w swoim modelu!)
-            batch, created = ProductBatch.objects.get_or_create(
-                product=order.product,
-                tenant=request.user.tenant,
-                net_price=order.net_price,  # <--- POPRAWKA
-                gross_price=order.gross_price,
-                defaults={'current_stock': order.quantity}  # <--- POPRAWKA (jeśli to pole trzyma ilość)
-            )
-
-            if not created:
-                # Jeśli partia istnieje, dodajemy nową ilość do obecnego stanu
-                batch.current_stock += order.quantity
-                batch.save()
-
-            if order.product:
-                order.product.save()  # Wyzwala przeliczenie stanów w produkcie
-
         order.save()
+
+        # Zwracamy sygnał do HTMX, aby odświeżył listę zamówień
         return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
 
-    return HttpResponse(status=400)
+    return HttpResponse("Niedozwolona zmiana statusu", status=400)

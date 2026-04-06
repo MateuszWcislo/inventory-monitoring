@@ -223,17 +223,7 @@ def product_bulk_delete(request):
     return HttpResponse(status=400)
 
 
-# --- DODAWANIE DO ZAMÓWIENIA (LOGIKA) ---
-@login_required
-def add_to_order_modal(request, pk):
-    product = get_object_or_404(Product, pk=pk, tenant=request.user.tenant)
-    # Pobieramy dostępnych dostawców dla tego produktu
-    mappings = product.supplier_mappings.all()
 
-    return render(request, 'inventory/partials/add_to_order_form.html', {
-        'product': product,
-        'mappings': mappings,
-    })
 
 
 # --- LOGIKA STANÓW (BATCHES) ---
@@ -269,80 +259,45 @@ def toggle_favourite(request, pk):
 @login_required
 def add_to_order_modal(request, pk):
     product = get_object_or_404(Product, pk=pk, tenant=request.user.tenant)
-    mappings = product.supplier_mappings.select_related('supplier')
+
+    # Pobieramy ostatnie zamówienie, żeby podpowiedzieć dostawcę i cenę
+    last_order = product.orders.filter(status='COMPLETED').order_by('-created_at').first()
+
+    # Jeśli nie ma historii, bierzemy pierwszego przypisanego dostawcę (opcjonalnie)
+    default_supplier = None
+    if last_order:
+        default_supplier = last_order.supplier
+    else:
+        # Zakładam, że relacja to product.supplier_mappings
+        first_mapping = product.supplier_mappings.first()
+        if first_mapping:
+            default_supplier = first_mapping.supplier
+
     return render(request, 'inventory/partials/add_to_order_form.html', {
         'product': product,
-        'mappings': mappings
+        'last_order': last_order,
+        'default_supplier': default_supplier,
+        'suppliers': [m.supplier for m in product.supplier_mappings.all()]
     })
-
 
 @login_required
 def add_to_order_save(request, pk):
     if request.method == "POST":
-        product = get_object_or_404(Product, pk=pk, tenant=request.user.tenant)
-        supplier_id = request.POST.get('supplier_id')
-        quantity = int(request.POST.get('quantity', 1))
-
-        last_batch = product.batches.last()
-        suggested_price = last_batch.net_price if last_batch else 0
-
-        with transaction.atomic():
-            Order.objects.create(
-                tenant=request.user.tenant,
-                product=product,
-                supplier_id=supplier_id,
-                quantity=quantity,
-                net_price=suggested_price,
-                order_type='MANUAL',
-                status='CREATED'
-            )
-        return HttpResponse(status=204, headers={'HX-Trigger': 'ordersChanged'})
-
-
-@login_required
-def bulk_add_to_order_save(request):
-    if request.method == "POST":
-        raw_ids = request.POST.get('product_ids', '')
-        product_ids = [pid for pid in raw_ids.split(',') if pid]
-
-        # UWAGA: W wersji zbiorczej upewnij się, że formularz wysyła supplier_id
+        product = get_object_or_404(Product, id=pk, tenant=request.user.tenant)
         supplier_id = request.POST.get('supplier_id')
 
-        with transaction.atomic():
-            for p_id in product_ids:
-                product = Product.objects.get(id=p_id, tenant=request.user.tenant)
-                needed_qty = max(1, product.min_threshold - product.total_stock)
-                last_price = Order.objects.filter(product=product, status='COMPLETED').last()
-                price = last_price.net_price if last_price else 0
-
-                Order.objects.create(
-                    tenant=request.user.tenant,
-                    product=product,
-                    supplier_id=supplier_id,
-                    quantity=needed_qty,
-                    net_price=price,
-                    order_type='MANUAL',
-                    status='CREATED'
-                )
-
-        trigger_data = {"ordersChanged": None, "clearProductChecks": None, "showToast": "Utworzono zamówienia."}
-        return HttpResponse(status=204, headers={'HX-Trigger': json.dumps(trigger_data)})
-
-
-@login_required
-def bulk_add_to_order_modal(request):
-    """Potrzebne, bo masz to w urls.py"""
-    product_ids = request.POST.getlist('product_ids')
-    products = Product.objects.filter(id__in=product_ids, tenant=request.user.tenant)
-    # Prosta logika: bierzemy wszystkich dostawców z systemu dla wyboru
-    suppliers = Supplier.objects.filter(tenant=request.user.tenant)
-
-    return render(request, 'inventory/partials/bulk_add_form.html', {
-        'products': products,
-        'suppliers': suppliers,
-        'product_ids': ",".join(map(str, product_ids))
-    })
-
+        # Tworzymy nowe, czyste zamówienie MANUAL
+        Order.objects.create(
+            product=product,
+            tenant=request.user.tenant,
+            supplier_id=supplier_id,
+            quantity=request.POST.get('quantity'),
+            net_price=request.POST.get('net_price'),
+            gross_price=request.POST.get('gross_price'),
+            order_type='MANUAL',
+            status='CREATED'
+        )
+        return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
 
 def add_supplier_row(request):
     # Tworzymy formset - prefix musi zgadzać się z tym w widoku głównym

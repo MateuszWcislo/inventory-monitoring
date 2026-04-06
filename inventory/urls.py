@@ -17,13 +17,8 @@ urlpatterns = [
     path('batch/update/<int:batch_id>/', views.quick_update_batch_stock, name='quick_update_batch_stock'),
 
     # --- ZAMÓWIENIA (INDYWIDUALNE) ---
-    # Usunięto duplikat add_to_order_modal
     path('add-to-order-modal/<uuid:pk>/', views.add_to_order_modal, name='add_to_order_modal'),
     path('add-to-order-save/<uuid:pk>/', views.add_to_order_save, name='add_to_order_save'),
-
-    # --- ZAMÓWIENIA (ZBIORCZE) ---
-    path('bulk-add-to-order/', views.bulk_add_to_order_modal, name='bulk_add_to_order_modal'),
-    path('bulk-add-to-order/save/', views.bulk_add_to_order_save, name='bulk_add_to_order_save'),
 
     path('add-supplier-row/', views.add_supplier_row, name='add_supplier_row'),
     path('add-batch-row/', views.add_batch_row, name='add_batch_row'),

@@ -13,7 +13,7 @@
     }
     .order-table tbody td {
         padding: 14px 8px;
-        font-size: 0.95rem; /* Zwiększona czcionka dla głównej treści */
+        font-size: 0.95rem;
     }
     .text-small-muted {
         font-size: 0.8rem;
@@ -24,14 +24,14 @@
         padding: 6px 12px;
         font-size: 0.75rem;
     }
-    /* Kontrola szerokości kolumn, by nie "pływały" */
+    /* Kontrola szerokości kolumn */
     .col-id { width: 85px; }
     .col-product { width: auto; min-width: 250px; }
     .col-supplier { width: 15%; }
     .col-qty { width: 110px; }
     .col-price { width: 130px; }
     .col-status { width: 130px; }
-    .col-actions { width: 140px; }
+    .col-actions { width: 180px; } /* Zwiększona szerokość pod ikonki */
 </style>
 
 <div class="table-responsive bg-white rounded-3 shadow-sm border">
@@ -109,57 +109,83 @@
                     {% endif %}
                 </td>
 
-<td class="text-end pe-4">
-    {% if order.status != 'COMPLETED' and order.status != 'CANCELLED' %}
-        <div class="btn-group shadow-sm border rounded bg-white">
-            <div class="btn-group" role="group">
-                <button type="button" class="btn btn-sm btn-white dropdown-toggle border-end" data-bs-toggle="dropdown">
-                    <i class="bi bi-arrow-repeat text-primary"></i>
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end shadow border-0">
-                    <li><h6 class="dropdown-header small uppercase">Zarządzaj statusem</h6></li>
+                <td class="text-end pe-4">
+                    {% if order.status != 'COMPLETED' and order.status != 'CANCELLED' %}
+                        <div class="btn-group btn-group-sm shadow-sm border rounded bg-white overflow-hidden">
 
-                    {% if order.status == 'CREATED' %}
-                    <li><button class="dropdown-item py-2" hx-post="{% url 'order_status_update' order.id %}" hx-vals='{"status": "ORDERED"}' hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-swap="none">✅ Oznacz: Zamówione</button></li>
+                            {# --- SZYBKIE ZMIANY STATUSÓW --- #}
+                            {% if order.status == 'CREATED' %}
+                                {# Do Zamówionego #}
+                                <button class="btn btn-white text-primary border-end px-2"
+                                        hx-post="{% url 'order_status_update' order.id %}"
+                                        hx-vals='{"status": "ORDERED"}'
+                                        hx-swap="none"
+                                        title="Oznacz jako Zamówione">
+                                    <i class="bi bi-truck"></i>
+                                </button>
+                                {# Bezpośrednio do Zakończonego #}
+                                <button class="btn btn-white text-success border-end px-2"
+                                        hx-post="{% url 'order_status_update' order.id %}"
+                                        hx-vals='{"status": "COMPLETED"}'
+                                        hx-confirm="Odebrać towar i zakończyć?"
+                                        hx-swap="none"
+                                        title="Odbierz i Zakończ">
+                                    <i class="bi bi-check-all"></i>
+                                </button>
+                            {% elif order.status == 'ORDERED' %}
+                                {# Z Zamówionego do Zakończonego #}
+                                <button class="btn btn-white text-success border-end px-2"
+                                        hx-post="{% url 'order_status_update' order.id %}"
+                                        hx-vals='{"status": "COMPLETED"}'
+                                        hx-confirm="Potwierdzasz odbiór towaru?"
+                                        hx-swap="none"
+                                        title="Odbierz towar">
+                                    <i class="bi bi-box-seam"></i>
+                                </button>
+                            {% endif %}
+
+                            {# --- EDYCJA (Zawsze dostępna dla otwartych) --- #}
+                            <button class="btn btn-white text-secondary border-end px-2"
+                                    hx-get="{% url 'order_edit' order.id %}"
+                                    hx-target="#modal-content"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#orderModal"
+                                    title="Edytuj">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+
+                            {# --- ANULOWANIE / USUWANIE --- #}
+                            <button class="btn btn-white text-danger px-2"
+                                    hx-post="{% url 'order_status_update' order.id %}"
+                                    hx-vals='{"status": "CANCELLED"}'
+                                    hx-confirm="Czy na pewno anulować?"
+                                    hx-swap="none"
+                                    title="Anuluj">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
+                        </div>
+                    {% else %}
+                        {# Statusy zablokowane #}
+                        <div class="d-flex align-items-center justify-content-end">
+                            <span class="text-muted small italic pe-2">
+                                <i class="bi bi-lock-fill me-1"></i>Zarchiwizowane
+                            </span>
+                            {% if order.status == 'CREATED' %} {# Fail-safe gdyby jednak coś zostało #}
+                                <button class="btn btn-sm btn-link text-danger p-0 ms-2"
+                                        hx-get="{% url 'order_delete' order.id %}"
+                                        hx-target="#modal-content"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#orderModal">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            {% endif %}
+                        </div>
                     {% endif %}
-
-                    {% if order.status == 'ORDERED' %}
-                    <li><button class="dropdown-item py-2 text-success fw-bold" hx-post="{% url 'order_status_update' order.id %}" hx-vals='{"status": "COMPLETED"}' hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-swap="none">📥 Odbierz do magazynu</button></li>
-                    {% endif %}
-
-                    <li><hr class="dropdown-divider"></li>
-                    <li><button class="dropdown-item py-2 text-danger" hx-post="{% url 'order_status_update' order.id %}" hx-vals='{"status": "CANCELLED"}' hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-swap="none">❌ Anuluj zamówienie</button></li>
-                </ul>
-            </div>
-
-            <button class="btn btn-sm btn-white border-end"
-                    hx-get="{% url 'order_edit' order.id %}"
-                    hx-target="#modal-content"
-                    data-bs-toggle="modal"
-                    data-bs-target="#orderModal"
-                    title="Edytuj dane">
-                <i class="bi bi-pencil-square text-secondary"></i>
-            </button>
-
-            {% if order.status == 'CREATED' %}
-            <button class="btn btn-sm btn-white text-danger"
-                    hx-get="{% url 'order_delete' order.id %}"
-                    hx-target="#modal-content"
-                    data-bs-toggle="modal"
-                    data-bs-target="#orderModal"
-                    title="Usuń">
-                <i class="bi bi-trash3"></i>
-            </button>
-            {% endif %}
-        </div>
-    {% else %}
-        <span class="text-muted small italic pe-2"><i class="bi bi-lock-fill me-1"></i>Zarchiwizowane</span>
-    {% endif %}
-</td>
+                </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="9" class="text-center py-5">
+                <td colspan="8" class="text-center py-5">
                     <div class="text-muted mb-2"><i class="bi bi-inbox fs-1"></i></div>
                     <div class="text-secondary fw-bold">Nie znaleziono zamówień</div>
                     <div class="text-muted small">Zmień filtry lub utwórz nowe zamówienie ręcznie.</div>
