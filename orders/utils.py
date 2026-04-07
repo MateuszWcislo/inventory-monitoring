@@ -4,12 +4,8 @@ def process_auto_order_logic(product):
     """Główna funkcja decyzyjna automatyzacji."""
     virtual_stock = product.get_virtual_stock()
 
-    print(f"--- AUTO ORDER CHECK: {product.name} ---")
-    print(f"Virtual Stock: {virtual_stock} | Min Threshold: {product.min_threshold}")
-
     # Jeśli stan wirtualny spadnie poniżej progu alarmowego
     if virtual_stock < product.min_threshold:
-        print("Status: BELOW THRESHOLD - Proceeding to order...")
         needed_quantity = product.target_stock - virtual_stock
 
         # 1. Szukamy istniejącego szkicu AUTO (tylko status CREATED)
@@ -43,5 +39,3 @@ def process_auto_order_logic(product):
                     order_type='AUTO',
                     status='CREATED'
                 )
-    else:
-        print("Status: STOCK OK - No action needed.")

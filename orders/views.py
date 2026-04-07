@@ -153,7 +153,6 @@ def update_inventory_stock(order, tenant):
     order.product.save()
 
 
-# orders/views.py
 @login_required
 @require_POST
 def order_status_update(request, pk):
@@ -176,3 +175,24 @@ def order_status_update(request, pk):
         return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
 
     return HttpResponse("Niedozwolona zmiana statusu", status=400)
+
+
+@login_required
+@require_POST
+def order_reorder(request, pk):
+    # Pobieramy oryginał
+    original_order = get_object_or_404(Order, pk=pk, tenant=request.user.tenant)
+
+    Order.objects.create(
+        tenant=original_order.tenant,
+        product=original_order.product,
+        supplier=original_order.supplier,
+        quantity=original_order.quantity,
+        net_price=original_order.net_price,
+        gross_price=original_order.gross_price,
+        order_type='MANUAL',  # Skoro klikasz przycisk, to jest to akcja manualna
+        status='CREATED'  # Zawsze zaczynamy od statusu szkicu
+    )
+
+    # Zwracamy sygnał do HTMX, aby odświeżył listę
+    return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})

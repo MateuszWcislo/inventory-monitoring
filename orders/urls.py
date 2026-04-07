@@ -8,4 +8,5 @@ urlpatterns = [
     path('delete/<uuid:pk>/', views.order_delete, name='order_delete'),
     path('get-options/', views.get_filtered_options, name='get_filtered_options'),
     path('status-update/<uuid:pk>/', views.order_status_update, name='order_status_update'),
+    path('reorder/<uuid:pk>/', views.order_reorder, name='order_reorder'),
 ]

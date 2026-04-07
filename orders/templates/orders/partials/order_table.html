@@ -31,7 +31,7 @@
     .col-qty { width: 110px; }
     .col-price { width: 130px; }
     .col-status { width: 130px; }
-    .col-actions { width: 180px; } /* Zwiększona szerokość pod ikonki */
+    .col-actions { width: 160px; }
 </style>
 
 <div class="table-responsive bg-white rounded-3 shadow-sm border">
@@ -110,12 +110,10 @@
                 </td>
 
                 <td class="text-end pe-4">
-                    {% if order.status != 'COMPLETED' and order.status != 'CANCELLED' %}
-                        <div class="btn-group btn-group-sm shadow-sm border rounded bg-white overflow-hidden">
-
+                    <div class="btn-group btn-group-sm shadow-sm border rounded bg-white overflow-hidden">
+                        {% if order.status != 'COMPLETED' and order.status != 'CANCELLED' %}
                             {# --- SZYBKIE ZMIANY STATUSÓW --- #}
                             {% if order.status == 'CREATED' %}
-                                {# Do Zamówionego #}
                                 <button class="btn btn-white text-primary border-end px-2"
                                         hx-post="{% url 'order_status_update' order.id %}"
                                         hx-vals='{"status": "ORDERED"}'
@@ -123,7 +121,6 @@
                                         title="Oznacz jako Zamówione">
                                     <i class="bi bi-truck"></i>
                                 </button>
-                                {# Bezpośrednio do Zakończonego #}
                                 <button class="btn btn-white text-success border-end px-2"
                                         hx-post="{% url 'order_status_update' order.id %}"
                                         hx-vals='{"status": "COMPLETED"}'
@@ -133,7 +130,6 @@
                                     <i class="bi bi-check-all"></i>
                                 </button>
                             {% elif order.status == 'ORDERED' %}
-                                {# Z Zamówionego do Zakończonego #}
                                 <button class="btn btn-white text-success border-end px-2"
                                         hx-post="{% url 'order_status_update' order.id %}"
                                         hx-vals='{"status": "COMPLETED"}'
@@ -144,7 +140,7 @@
                                 </button>
                             {% endif %}
 
-                            {# --- EDYCJA (Zawsze dostępna dla otwartych) --- #}
+                            {# --- EDYCJA --- #}
                             <button class="btn btn-white text-secondary border-end px-2"
                                     hx-get="{% url 'order_edit' order.id %}"
                                     hx-target="#modal-content"
@@ -154,7 +150,7 @@
                                 <i class="bi bi-pencil-square"></i>
                             </button>
 
-                            {# --- ANULOWANIE / USUWANIE --- #}
+                            {# --- ANULOWANIE --- #}
                             <button class="btn btn-white text-danger px-2"
                                     hx-post="{% url 'order_status_update' order.id %}"
                                     hx-vals='{"status": "CANCELLED"}'
@@ -163,24 +159,27 @@
                                     title="Anuluj">
                                 <i class="bi bi-x-circle"></i>
                             </button>
-                        </div>
-                    {% else %}
-                        {# Statusy zablokowane #}
-                        <div class="d-flex align-items-center justify-content-end">
-                            <span class="text-muted small italic pe-2">
-                                <i class="bi bi-lock-fill me-1"></i>Zarchiwizowane
-                            </span>
-                            {% if order.status == 'CREATED' %} {# Fail-safe gdyby jednak coś zostało #}
-                                <button class="btn btn-sm btn-link text-danger p-0 ms-2"
-                                        hx-get="{% url 'order_delete' order.id %}"
-                                        hx-target="#modal-content"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#orderModal">
-                                    <i class="bi bi-trash3"></i>
-                                </button>
-                            {% endif %}
-                        </div>
-                    {% endif %}
+                        {% else %}
+                            {# --- ZAMÓW PONOWNIE (Dla zakończonych i anulowanych) --- #}
+                            <button class="btn btn-white text-primary border-end px-2"
+                                    hx-post="{% url 'order_reorder' order.id %}"
+                                    hx-swap="none"
+                                    hx-confirm="Utworzyć nowe zamówienie na podstawie tego wzorca?"
+                                    title="Zamów ponownie">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+
+                            {# --- USUWANIE (Dla utrzymania porządku) --- #}
+                            <button class="btn btn-white text-danger px-2"
+                                    hx-get="{% url 'order_delete' order.id %}"
+                                    hx-target="#modal-content"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#orderModal"
+                                    title="Usuń z historii">
+                                <i class="bi bi-trash3"></i>
+                            </button>
+                        {% endif %}
+                    </div>
                 </td>
             </tr>
             {% empty %}
