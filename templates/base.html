@@ -38,6 +38,20 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'order_list' %}"><i class="bi bi-cart-check me-1"></i>Zamówienia</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link d-flex align-items-center gap-2 {% if 'services' in request.path %}active{% endif %}"
+                           href="{% url 'service_list' %}">
+                            <i class="bi bi-tools"></i>
+                            <span>Usługi</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link d-flex align-items-center gap-2 {% if 'work-orders' in request.path %}active fw-bold text-primary{% endif %}"
+                           href="{% url 'work_order_list' %}">
+                            <i class="bi bi-file-earmark-check"></i>
+                            <span>Zlecenia</span>
+                        </a>
+                    </li>
                     {% if user.role == 'ADMIN' or user.is_superuser %}
                     <li class="nav-item">
                         <a class="nav-link text-info" href="{% url 'user_list' %}"><i class="bi bi-people me-1"></i>Użytkownicy</a>

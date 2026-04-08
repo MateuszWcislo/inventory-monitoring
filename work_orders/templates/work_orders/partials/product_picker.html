@@ -1,0 +1,52 @@
+<div class="modal-header">
+    <h5 class="modal-title">Wybierz produkty</h5>
+    <input type="text" class="form-control form-control-sm w-50 ms-auto"
+           placeholder="Filtruj listę..."
+           onkeyup="filterList(this, 'product-list')">
+</div>
+<form hx-post="{% url 'add_multiple_products' order.id %}" hx-swap="none"
+      hx-on::after-request="bootstrap.Modal.getInstance(document.getElementById('pickerModal')).hide()">
+    {% csrf_token %}
+    <div class="modal-body p-0" style="max-height: 400px; overflow-y: auto;">
+        <table class="table table-sm align-middle mb-0" id="product-list">
+            <thead class="table-light sticky-top">
+                <tr>
+                    <th class="ps-3">Produkt</th>
+                    <th>Stan</th>
+                    <th style="width: 100px;">Ilość</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in batches %}
+                <tr>
+                    <td class="ps-3">
+                        <div class="fw-bold">{{ b.product.name }}</div>
+                        <small class="text-muted">Cena: {{ b.net_price }} PLN</small>
+                    </td>
+                    <td><span class="badge bg-light text-dark">{{ b.current_stock }}</span></td>
+                    <td class="pe-3">
+                        <input type="hidden" name="batch_ids" value="{{ b.id }}">
+                        <input type="number" name="qty_{{ b.id }}"
+                               class="form-control form-control-sm"
+                               min="0" max="{{ b.current_stock }}" value="0">
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="modal-footer">
+        <button type="submit" class="btn btn-primary">Dodaj wybrane</button>
+    </div>
+</form>
+
+<script>
+function filterList(input, tableId) {
+    let filter = input.value.toUpperCase();
+    let rows = document.getElementById(tableId).getElementsByTagName("tr");
+    for (let i = 1; i < rows.length; i++) {
+        let text = rows[i].textContent || rows[i].innerText;
+        rows[i].style.display = text.toUpperCase().indexOf(filter) > -1 ? "" : "none";
+    }
+}
+</script>

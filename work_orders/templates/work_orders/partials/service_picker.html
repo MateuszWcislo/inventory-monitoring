@@ -1,0 +1,36 @@
+<form hx-post="{% url 'add_multiple_services' order.id %}" hx-swap="none"
+      hx-on::after-request="bootstrap.Modal.getInstance(document.getElementById('pickerModal')).hide()">
+    {% csrf_token %}
+    <div class="modal-body p-0" style="max-height: 60vh; overflow-y: auto;">
+        <table class="table table-hover align-middle mb-0" id="serviceTable">
+            <thead class="table-light sticky-top">
+                <tr>
+                    <th class="ps-3">Usługa</th>
+                    <th class="text-end">Cena netto</th>
+                    <th style="width: 120px;" class="pe-3 text-end">Ilość</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in services %}
+                <tr>
+                    <td class="ps-3">
+                        <div class="fw-bold">{{ s.name }}</div>
+                        <small class="text-muted">VAT: {{ s.vat_rate }}%</small>
+                    </td>
+                    <td class="text-end text-muted">{{ s.net_price|floatformat:2 }} PLN</td>
+                    <td class="pe-3">
+                        <input type="hidden" name="service_ids" value="{{ s.id }}">
+                        <input type="number" name="qty_{{ s.id }}"
+                               class="form-control form-control-sm text-end"
+                               min="0" value="0">
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" class="btn btn-dark px-4">Dodaj wybrane usługi</button>
+    </div>
+</form>

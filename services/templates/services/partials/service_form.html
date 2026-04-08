@@ -1,0 +1,35 @@
+<div class="modal-header">
+    <h5 class="modal-title fw-bold">{{ title }}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<form hx-post="{{ request.path }}"
+      hx-on::after-request="if(event.detail.successful) bootstrap.Modal.getInstance(document.getElementById('serviceModal')).hide()">
+    {% csrf_token %}
+    <div class="modal-body px-4">
+        <div class="mb-3">
+            <label class="form-label fw-semibold small text-uppercase">Nazwa usługi</label>
+            {{ form.name }}
+        </div>
+        <div class="row">
+            <div class="col-md-7">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small text-uppercase">Cena Netto (PLN)</label>
+                    {{ form.net_price }}
+                </div>
+            </div>
+            <div class="col-md-5">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small text-uppercase">VAT (%)</label>
+                    {{ form.vat_rate }}
+                </div>
+            </div>
+        </div>
+        <div class="alert alert-info py-2 px-3 border-0 small mb-0">
+            <i class="bi bi-info-circle me-2"></i>Wpisz stawkę (np. 23), brutto przeliczy się samo.
+        </div>
+    </div>
+    <div class="modal-footer bg-light border-top-0">
+        <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" class="btn btn-primary px-4">Zapisz usługę</button>
+    </div>
+</form>

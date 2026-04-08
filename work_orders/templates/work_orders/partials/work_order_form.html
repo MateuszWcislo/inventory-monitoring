@@ -1,0 +1,29 @@
+<div class="modal-header">
+    <h5 class="modal-title fw-bold">{{ title }}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<form hx-post="{% url 'work_order_create' %}"
+      hx-on::after-request="if(event.detail.successful) bootstrap.Modal.getInstance(document.getElementById('orderModal')).hide()">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="mb-3">
+            <label class="form-label fw-bold small text-uppercase">Nazwa zlecenia</label>
+            {{ form.name }}
+            {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-bold small text-uppercase">Klient</label>
+            {{ form.client }}
+            {% if form.client.errors %}<div class="text-danger small">{{ form.client.errors }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-bold small text-uppercase">Opis / Uwagi</label>
+            {{ form.description }}
+            {% if form.description.errors %}<div class="text-danger small">{{ form.description.errors }}</div>{% endif %}
+        </div>
+    </div>
+    <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" class="btn btn-primary">Utwórz zlecenie</button>
+    </div>
+</form>

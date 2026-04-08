@@ -1,3 +1,2 @@
 1. Ujednolicenie potwierdzeń.
-2. Usługi.
-3. Zlecenia (kosztorysy).
+2. Walidacja pól - komunikaty po polsku.

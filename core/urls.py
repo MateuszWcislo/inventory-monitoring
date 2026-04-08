@@ -35,6 +35,10 @@ urlpatterns = [
     path('suppliers/', include('suppliers.urls')),
     # # Orders
     path('orders/', include('orders.urls')),
+    # # Services
+    path('services/', include('services.urls')),
+    # # Work orders
+    path('work_orders/', include('work_orders.urls')),
     # # Users
     path('users/', include('users.urls')),
 ]

@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h4 mb-1 fw-bold text-dark">Zlecenia</h2>
+        <p class="text-muted small mb-0">Zarządzaj aktywnymi pracami i historią zleceń.</p>
+    </div>
+    <button class="btn btn-primary shadow-sm d-flex align-items-center gap-2"
+            hx-get="{% url 'work_order_create' %}"
+            hx-target="#modal-content"
+            data-bs-toggle="modal"
+            data-bs-target="#orderModal">
+        <i class="bi bi-plus-lg"></i>
+        <span>Nowe zlecenie</span>
+    </button>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-12">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0 text-muted">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text"
+                           name="search"
+                           class="form-control border-start-0 ps-0"
+                           placeholder="Szukaj po nazwie zlecenia lub kliencie..."
+                           hx-get="{% url 'work_order_list' %}"
+                           hx-trigger="keyup changed delay:500ms"
+                           hx-target="#order-table-container">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="order-table-container" hx-get="{% url 'work_order_list' %}" hx-trigger="ordersChanged from:body">
+    {% include 'work_orders/partials/order_table.html' %}
+</div>
+
+<div class="modal fade" id="orderModal" tabindex="-1" aria-labelledby="orderModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div id="modal-content" class="modal-content border-0 shadow-lg">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Ładowanie...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Automatyczne odświeżanie po zamknięciu modala, jeśli formularz był sukcesem
+    document.body.addEventListener('htmx:afterOnLoad', function(evt) {
+        if (evt.detail.xhr.status === 204 || evt.detail.xhr.status === 200) {
+            // Możesz tu dodać dodatkową logikę po sukcesie
+        }
+    });
+</script>
+{% endblock %}

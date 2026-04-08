@@ -1,0 +1,66 @@
+<div class="table-responsive bg-white rounded-3 shadow-sm border">
+    <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+            <tr>
+                <th class="ps-4">Data</th>
+                <th>Zlecenie / Klient</th>
+                <th class="text-center">Status</th>
+                <th class="text-end">Wartość Netto</th>
+                <th class="text-end">Wartość Brutto</th>
+                <th class="text-end pe-4">Akcje</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in orders %}
+            <tr>
+                <td class="ps-4 text-muted small">{{ order.created_at|date:"d.m.Y H:i" }}</td>
+                <td>
+                    <div class="fw-bold">{{ order.name }}</div>
+                    <div class="small text-muted">{{ order.client }}</div>
+                </td>
+                <td class="text-center">
+                    {% if order.status == 'IN_PROGRESS' %}
+                        <span class="badge bg-warning text-dark">W trakcie</span>
+                    {% else %}
+                        <span class="badge bg-success">Zakończone</span>
+                    {% endif %}
+                </td>
+                <td class="text-end">{{ order.total_net|floatformat:2 }} PLN</td>
+                <td class="text-end fw-bold">{{ order.total_gross|floatformat:2 }} PLN</td>
+                <td class="text-end pe-4">
+                    <div class="btn-group btn-group-sm border rounded bg-white shadow-sm">
+                        <a href="{% url 'work_order_detail' order.id %}"
+                           class="btn btn-white {% if order.status == 'IN_PROGRESS' %}text-primary{% else %}text-secondary{% endif %} border-end px-2"
+                           title="{% if order.status == 'IN_PROGRESS' %}Edytuj{% else %}Podgląd{% endif %}">
+                            <i class="bi {% if order.status == 'IN_PROGRESS' %}bi-pencil-square{% else %}bi-eye{% endif %}"></i>
+                        </a>
+
+                        {% if order.status == 'IN_PROGRESS' %}
+                        <button class="btn btn-white text-success border-end px-2"
+                                hx-post="{% url 'work_order_complete' order.id %}"
+                                hx-confirm="Czy na pewno zakończyć to zlecenie? Po zakończeniu edycja zostanie zablokowana."
+                                hx-swap="none"
+                                title="Oznacz jako zakończone">
+                            <i class="bi bi-check-circle"></i>
+                        </button>
+                        {% endif %}
+
+                        <button class="btn btn-white text-danger px-2"
+                                hx-post="{% url 'work_order_delete' order.id %}"
+                                hx-confirm="Czy na pewno chcesz USUNĄĆ to zlecenie? {% if order.status == 'IN_PROGRESS' %}Produkty zostaną zwrócone na magazyn.{% endif %}"
+                                hx-target="closest tr"
+                                hx-swap="outerHTML swap:500ms"
+                                title="Usuń">
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center py-5 text-muted">Brak zleceń do wyświetlenia.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
