@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load l10n %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-start mb-4">
@@ -53,17 +54,18 @@
                         <table class="table align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th class="ps-4" style="width: 45%;">Pozycja (Snapshot)</th>
-                                    <th class="text-center" style="width: 10%;">Ilość</th>
-                                    <th class="text-end" style="width: 15%;">Cena jednostkowa netto</th>
-                                    <th class="text-end" style="width: 15%;">Cena jednostkowa brutto</th>
-                                    <th class="text-end" style="width: 20%;">Suma brutto</th>
-                                    <th class="text-end pe-4" style="width: 10%;">
+                                    <th class="ps-4" style="width: 40%;">Pozycja (Snapshot)</th>
+                                    <th class="text-center" style="width: 15%;">Ilość</th>
+                                    <th class="text-end" style="width: 15%;">Jedn. Netto</th>
+                                    <th class="text-end" style="width: 15%;">Jedn. Brutto</th>
+                                    <th class="text-end" style="width: 15%;">Suma Brutto</th>
+                                    <th class="text-end pe-4" style="width: 5%;">
                                         {% if order.status == 'IN_PROGRESS' %}Akcje{% endif %}
                                     </th>
                                 </tr>
                             </thead>
                             <tbody>
+                                {# PRODUKTY #}
                                 {% for item in order.items.all %}
                                 <tr>
                                     <td class="ps-4">
@@ -71,16 +73,32 @@
                                             <i class="bi bi-box text-info me-3"></i>
                                             <div>
                                                 <div class="fw-bold">{{ item.name_snapshot }}</div>
-                                                <small class="text-muted">Produkt z magazynu</small>
+                                                <small class="text-muted small">Pozostaje w magazynie: <strong>{{ item.product_batch.current_stock }}</strong></small>
                                             </div>
                                         </div>
                                     </td>
                                     <td class="text-center">
-                                        <span class="badge bg-light text-dark border">{{ item.quantity }}</span>
+                                        {% if order.status == 'IN_PROGRESS' %}
+                                            <input type="number"
+                                               name="quantity"
+                                               value="{{ item.quantity }}"
+                                               min="1"
+                                               max="{{ item.quantity|add:item.product_batch.current_stock|unlocalize }}"
+                                               class="form-control form-control-sm mx-auto text-center fw-bold"
+                                               style="width: 80px;"
+                                               inputmode="numeric"
+                                               hx-post="{% url 'update_product_quantity' item.id %}"
+                                               hx-trigger="change, keyup delay:500ms"
+                                               hx-swap="none"
+                                               {# TRIK: Resetuje do poprzedniej wartości i pokazuje alert przy błędzie #}
+                                               hx-on::response-error="this.value = {{ item.quantity|unlocalize }}; alert('Błąd: Brak wystarczającej ilości towaru w tej partii!');">
+                                        {% else %}
+                                            <span class="badge bg-light text-dark border">{{ item.quantity }}</span>
+                                        {% endif %}
                                     </td>
-                                    <td class="text-end text-muted">{{ item.unit_price_net|floatformat:2 }} PLN</td>
-                                    <td class="text-end">{{ item.unit_price_gross|floatformat:2 }} PLN</td>
-                                    <td class="text-end fw-bold">{{ item.total_price_gross|floatformat:2 }} PLN</td>
+                                    <td class="text-end text-muted small">{{ item.unit_price_net|floatformat:2 }}</td>
+                                    <td class="text-end small">{{ item.unit_price_gross|floatformat:2 }}</td>
+                                    <td class="text-end fw-bold">{{ item.total_price_gross|floatformat:2 }}</td>
                                     <td class="text-end pe-4">
                                         {% if order.status == 'IN_PROGRESS' %}
                                         <button class="btn btn-sm btn-outline-danger border-0"
@@ -94,6 +112,7 @@
                                 </tr>
                                 {% endfor %}
 
+                                {# USŁUGI #}
                                 {% for s in order.services.all %}
                                 <tr>
                                     <td class="ps-4">
@@ -101,20 +120,34 @@
                                             <i class="bi bi-gear-wide-connected text-secondary me-3"></i>
                                             <div>
                                                 <div class="fw-bold">{{ s.name_snapshot }}</div>
-                                                <small class="text-muted">Usługa / Robocizna</small>
+                                                <small class="text-muted small">Usługa / Robocizna</small>
                                             </div>
                                         </div>
                                     </td>
                                     <td class="text-center">
-                                        <span class="badge bg-light text-dark border">{{ s.quantity }}</span>
+                                        {% if order.status == 'IN_PROGRESS' %}
+                                            <input type="number"
+                                                   name="quantity"
+                                                   value="{{ s.quantity }}"
+                                                   min="1"
+                                                   class="form-control form-control-sm mx-auto text-center fw-bold"
+                                                   style="width: 80px;"
+                                                   inputmode="numeric"
+                                                   hx-post="{% url 'update_service_quantity' s.id %}"
+                                                   hx-trigger="change, keyup delay:500ms"
+                                                   hx-swap="none">
+                                        {% else %}
+                                            <span class="badge bg-light text-dark border">{{ s.quantity }}</span>
+                                        {% endif %}
                                     </td>
-                                    <td class="text-end text-muted">{{ s.unit_price_net|floatformat:2 }} PLN</td>
-                                    <td class="text-end">{{ s.unit_price_gross|floatformat:2 }} PLN</td>
-                                    <td class="text-end fw-bold">{{ s.total_price_gross|floatformat:2 }} PLN </td>                                    <td class="text-end pe-4">
+                                    <td class="text-end text-muted small">{{ s.unit_price_net|floatformat:2 }}</td>
+                                    <td class="text-end small">{{ s.unit_price_gross|floatformat:2 }}</td>
+                                    <td class="text-end fw-bold">{{ s.total_price_gross|floatformat:2 }}</td>
+                                    <td class="text-end pe-4">
                                         {% if order.status == 'IN_PROGRESS' %}
                                         <button class="btn btn-sm btn-outline-danger border-0"
                                                 hx-post="{% url 'remove_service_item' s.id %}"
-                                                hx-confirm="Usunąć usługę ze zlecenia?"
+                                                hx-confirm="Usunąć usługę?"
                                                 hx-swap="none">
                                             <i class="bi bi-trash3"></i>
                                         </button>
@@ -125,7 +158,7 @@
 
                                 {% if not order.items.all and not order.services.all %}
                                 <tr>
-                                    <td colspan="5" class="text-center py-5 text-muted">
+                                    <td colspan="6" class="text-center py-5 text-muted">
                                         <i class="bi bi-info-circle me-2"></i> Zlecenie jest puste.
                                     </td>
                                 </tr>
@@ -137,18 +170,18 @@
                     <div class="card-footer bg-white border-top p-4">
                         <div class="row align-items-center">
                             <div class="col-md-6">
-                                <div class="p-3 bg-light rounded-3 shadow-sm border">
-                                    <small class="fw-bold text-uppercase text-muted d-block mb-1">Opis zlecenia:</small>
-                                    <div class="small">{{ order.description|default:"Brak dodatkowego opisu." }}</div>
+                                <div class="p-3 bg-light rounded-3 shadow-sm border text-muted small">
+                                    <small class="fw-bold text-uppercase d-block mb-1">Opis zlecenia:</small>
+                                    {{ order.description|default:"Brak opisu." }}
                                 </div>
                             </div>
                             <div class="col-md-6 text-end">
                                 <div class="d-inline-block text-start" style="min-width: 250px;">
                                     <div class="d-flex justify-content-between mb-1">
-                                        <span class="text-muted">Suma Netto:</span>
+                                        <span class="text-muted small">Suma Netto:</span>
                                         <span class="fw-bold">{{ order.total_net|floatformat:2 }} PLN</span>
                                     </div>
-                                   <div class="d-flex justify-content-between mb-3 text-muted small">
+                                    <div class="d-flex justify-content-between mb-3 text-muted small">
                                         <span>VAT (Suma):</span>
                                         <span>{{ order.total_vat|floatformat:2 }} PLN</span>
                                     </div>

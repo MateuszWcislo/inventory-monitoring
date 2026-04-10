@@ -138,7 +138,7 @@ def add_service_item(request, pk):
         order=order,
         service=service_obj,
         name_snapshot=service_obj.name,
-        price_net=service_obj.net_price,
+        unit_price_net=service_obj.unit_price_net,
         vat_rate=service_obj.vat_rate
     )
     return HttpResponse("", headers={'HX-Trigger': 'orderUpdated'})
@@ -164,17 +164,17 @@ def get_service_picker(request, pk):
         'services': services
     })
 
+
+# work_orders/views.py
+
 @login_required
 @require_POST
 def add_multiple_products(request, pk):
     order = get_object_or_404(WorkOrder, pk=pk, tenant=request.user.tenant)
-
     if order.status != 'IN_PROGRESS':
-        return HttpResponse("Zlecenie jest zamknięte", status=403)
+        return HttpResponse("Zlecenie zamknięte", status=403)
 
-    # Pobieramy słownik id_partii -> ilość z POST
     batch_ids = request.POST.getlist('batch_ids')
-
     for b_id in batch_ids:
         qty_str = request.POST.get(f'qty_{b_id}', '0')
         quantity = int(qty_str) if qty_str.isdigit() else 0
@@ -183,17 +183,22 @@ def add_multiple_products(request, pk):
             batch = get_object_or_404(ProductBatch, id=b_id, tenant=request.user.tenant)
 
             if batch.current_stock >= quantity:
-                WorkOrderProduct.objects.create(
-                    order=order,
-                    product_batch=batch,
-                    name_snapshot=f"{batch.product.name}",  # Usunąłem batch_number
-                    unit_price_net=batch.net_price,
-                    vat_rate=Decimal('23.00'),
-                    quantity=quantity
-                )
+                # SZUKAMY CZY JUŻ JEST
+                existing_item = WorkOrderProduct.objects.filter(order=order, product_batch=batch).first()
+                if existing_item:
+                    existing_item.quantity += quantity
+                    existing_item.save()
+                else:
+                    WorkOrderProduct.objects.create(
+                        order=order,
+                        product_batch=batch,
+                        name_snapshot=f"{batch.product.name}",
+                        unit_price_net=batch.net_price,
+                        vat_rate=Decimal('23.00'),
+                        quantity=quantity
+                    )
                 batch.current_stock -= quantity
                 batch.save()
-
     return HttpResponse("", headers={'HX-Trigger': 'orderUpdated'})
 
 
@@ -201,27 +206,76 @@ def add_multiple_products(request, pk):
 @require_POST
 def add_multiple_services(request, pk):
     order = get_object_or_404(WorkOrder, pk=pk, tenant=request.user.tenant)
-
-    if order.status != 'IN_PROGRESS':
-        return HttpResponse("Zlecenie jest zamknięte", status=403)
-
     service_ids = request.POST.getlist('service_ids')
 
     for s_id in service_ids:
-        # Pobieramy ilość dla danej usługi
         qty_str = request.POST.get(f'qty_{s_id}', '0')
         quantity = int(qty_str) if qty_str.isdigit() else 0
 
         if quantity > 0:
             service_obj = get_object_or_404(Service, id=s_id, tenant=request.user.tenant)
-            WorkOrderService.objects.create(
+            # SZUKAMY CZY JUŻ JEST (po usłudze i cenie - jeśli cena się różni, lepiej mieć osobne linie)
+            existing_item = WorkOrderService.objects.filter(
                 order=order,
                 service=service_obj,
-                name_snapshot=service_obj.name,
-                price_net=service_obj.net_price,
-                vat_rate=service_obj.vat_rate,
-                quantity=quantity  # Zapisujemy ilość
-            )
+                unit_price_net=service_obj.net_price
+            ).first()
+
+            if existing_item:
+                existing_item.quantity += quantity
+                existing_item.save()
+            else:
+                WorkOrderService.objects.create(
+                    order=order,
+                    service=service_obj,
+                    name_snapshot=service_obj.name,
+                    unit_price_net=service_obj.net_price,
+                    vat_rate=service_obj.vat_rate,
+                    quantity=quantity
+                )
+    return HttpResponse("", headers={'HX-Trigger': 'orderUpdated'})
+
+
+@login_required
+@require_POST
+def update_product_quantity(request, item_id):
+    item = get_object_or_404(WorkOrderProduct, id=item_id, order__tenant=request.user.tenant)
+    batch = item.product_batch
+    old_qty = item.quantity  # Zapamiętujemy starą wartość
+
+    try:
+        new_qty = int(request.POST.get('quantity', old_qty))
+    except (ValueError, TypeError):
+        new_qty = old_qty
+
+    diff = new_qty - old_qty
+
+    if diff > 0 and batch.current_stock < diff:
+        # BŁĄD: Brak towaru.
+        # Zwracamy status 400, ale też przesyłamy starą wartość w body
+        response = HttpResponse(str(old_qty), status=400)
+        # Dodajemy nagłówek, który wywoła alert u użytkownika
+        response['HX-Trigger'] = 'qtyError'
+        return response
+
+    # ... reszta logiki zapisu (jak wcześniej) ...
+    if diff > 0:
+        batch.current_stock -= diff
+    else:
+        batch.current_stock += abs(diff)
+
+    item.quantity = new_qty
+    batch.save()
+    item.save()
+
+    return HttpResponse(str(item.quantity), headers={'HX-Trigger': 'orderUpdated'})
+
+@login_required
+@require_POST
+def update_service_quantity(request, item_id):
+    item = get_object_or_404(WorkOrderService, id=item_id, order__tenant=request.user.tenant)
+    item.quantity = int(request.POST.get('quantity', item.quantity))
+    item.save()
     return HttpResponse("", headers={'HX-Trigger': 'orderUpdated'})
 
 
