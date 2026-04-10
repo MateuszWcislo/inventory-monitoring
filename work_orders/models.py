@@ -25,13 +25,13 @@ class WorkOrder(models.Model):
     @property
     def total_net(self):
         p_net = sum(item.total_price_net for item in self.items.all())
-        s_net = sum(item.price_net for item in self.services.all())
+        s_net = sum(item.total_price_net for item in self.services.all())
         return p_net + s_net
 
     @property
     def total_gross(self):
         p_gross = sum(item.total_price_gross for item in self.items.all())
-        s_gross = sum(item.price_gross for item in self.services.all())
+        s_gross = sum(item.total_price_gross for item in self.services.all())
         return p_gross + s_gross
 
     @property
@@ -55,6 +55,11 @@ class WorkOrderProduct(models.Model):
         return self.unit_price_net * self.quantity
 
     @property
+    def unit_price_gross(self):
+        """Cena brutto za 1 sztukę usługi"""
+        return (self.unit_price_net * (1 + self.vat_rate / 100)).quantize(Decimal('0.01'))
+
+    @property
     def total_price_gross(self):
         factor = 1 + (self.vat_rate / Decimal(100))
         return (self.total_price_net * factor).quantize(Decimal('0.01'))
@@ -67,14 +72,19 @@ class WorkOrderService(models.Model):
     # SNAPSHOTY danych:
     quantity = models.PositiveIntegerField(default=1)
     name_snapshot = models.CharField(max_length=255)
-    price_net = models.DecimalField(max_digits=10, decimal_places=2)
+    unit_price_net = models.DecimalField(max_digits=10, decimal_places=2)
     vat_rate = models.DecimalField(max_digits=5, decimal_places=2)
 
     @property
     def total_price_net(self):
-        return self.price_net * self.quantity
+        return self.unit_price_net * self.quantity
 
     @property
-    def price_gross(self):
-        factor = 1 + (self.vat_rate / Decimal(100))
-        return (self.price_net * factor).quantize(Decimal('0.01'))
+    def unit_price_gross(self):
+        """Cena brutto za 1 sztukę usługi"""
+        return (self.unit_price_net * (1 + self.vat_rate / 100)).quantize(Decimal('0.01'))
+
+    @property
+    def total_price_gross(self):
+        """Suma brutto (ilość * cena jednostkowa brutto)"""
+        return (self.unit_price_gross * self.quantity).quantize(Decimal('0.01'))

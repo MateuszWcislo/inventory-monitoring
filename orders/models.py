@@ -28,7 +28,7 @@ class Order(models.Model):
 
     # --- SNAPSHOTY (Historia - zachowanie danych nawet po usunięciu produktu) ---
     product_name_snapshot = models.CharField("Nazwa produktu", max_length=255, blank=True)
-    supplier_sku_snapshot = models.CharField("SKU u dostawcy", max_length=100, blank=True)
+    supplier_sku_snapshot = models.CharField("SKU u dostawcy", max_length=100, blank=True, null=True)
     representative_snapshot = models.CharField("Opiekun u dostawcy", max_length=255, blank=True, null=True)
 
     # --- DANE FINANSOWE I ILOŚCIOWE ---

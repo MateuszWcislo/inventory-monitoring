@@ -1,2 +1,3 @@
 1. Ujednolicenie potwierdzeń.
 2. Walidacja pól - komunikaty po polsku.
+3. Activity Log

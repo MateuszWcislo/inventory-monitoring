@@ -56,6 +56,7 @@
                                     <th class="ps-4" style="width: 45%;">Pozycja (Snapshot)</th>
                                     <th class="text-center" style="width: 10%;">Ilość</th>
                                     <th class="text-end" style="width: 15%;">Cena jednostkowa netto</th>
+                                    <th class="text-end" style="width: 15%;">Cena jednostkowa brutto</th>
                                     <th class="text-end" style="width: 20%;">Suma brutto</th>
                                     <th class="text-end pe-4" style="width: 10%;">
                                         {% if order.status == 'IN_PROGRESS' %}Akcje{% endif %}
@@ -78,6 +79,7 @@
                                         <span class="badge bg-light text-dark border">{{ item.quantity }}</span>
                                     </td>
                                     <td class="text-end text-muted">{{ item.unit_price_net|floatformat:2 }} PLN</td>
+                                    <td class="text-end">{{ item.unit_price_gross|floatformat:2 }} PLN</td>
                                     <td class="text-end fw-bold">{{ item.total_price_gross|floatformat:2 }} PLN</td>
                                     <td class="text-end pe-4">
                                         {% if order.status == 'IN_PROGRESS' %}
@@ -106,9 +108,9 @@
                                     <td class="text-center">
                                         <span class="badge bg-light text-dark border">{{ s.quantity }}</span>
                                     </td>
-                                    <td class="text-end text-muted">{{ s.price_net|floatformat:2 }} PLN</td>
-                                    <td class="text-end fw-bold">{{ s.price_gross|floatformat:2 }} PLN</td>
-                                    <td class="text-end pe-4">
+                                    <td class="text-end text-muted">{{ s.unit_price_net|floatformat:2 }} PLN</td>
+                                    <td class="text-end">{{ s.unit_price_gross|floatformat:2 }} PLN</td>
+                                    <td class="text-end fw-bold">{{ s.total_price_gross|floatformat:2 }} PLN </td>                                    <td class="text-end pe-4">
                                         {% if order.status == 'IN_PROGRESS' %}
                                         <button class="btn btn-sm btn-outline-danger border-0"
                                                 hx-post="{% url 'remove_service_item' s.id %}"
