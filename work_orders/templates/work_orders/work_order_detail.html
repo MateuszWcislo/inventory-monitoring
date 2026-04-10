@@ -169,12 +169,33 @@
 
                     <div class="card-footer bg-white border-top p-4">
                         <div class="row align-items-center">
+
                             <div class="col-md-6">
-                                <div class="p-3 bg-light rounded-3 shadow-sm border text-muted small">
-                                    <small class="fw-bold text-uppercase d-block mb-1">Opis zlecenia:</small>
-                                    {{ order.description|default:"Brak opisu." }}
+                                <div class="p-3 bg-light rounded-3 shadow-sm border">
+                                    <label for="orderDescription" class="fw-bold text-uppercase text-muted d-block mb-2" style="font-size: 0.75rem;">
+                                        <i class="bi bi-pencil-square me-1"></i> Opis zlecenia:
+                                    </label>
+
+                                    {% if order.status == 'IN_PROGRESS' %}
+                                        <textarea id="orderDescription"
+                                                  name="description"
+                                                  class="form-control form-control-sm border-0 bg-transparent p-0"
+                                                  rows="3"
+                                                  placeholder="Kliknij, aby dodać opis..."
+                                                  style="resize: none; box-shadow: none;"
+                                                  hx-post="{% url 'update_order_description' order.id %}"
+                                                  hx-trigger="keyup delay:1s, change"
+                                                  hx-swap="none">{{ order.description }}</textarea>
+                                        <div class="text-end">
+                                            <small class="text-muted" style="font-size: 0.65rem;">Zapisuje się automatycznie...</small>
+                                        </div>
+                                    {% else %}
+                                        <div class="small">{{ order.description|default:"Brak dodatkowego opisu." }}</div>
+                                    {% endif %}
                                 </div>
                             </div>
+
+
                             <div class="col-md-6 text-end">
                                 <div class="d-inline-block text-start" style="min-width: 250px;">
                                     <div class="d-flex justify-content-between mb-1">

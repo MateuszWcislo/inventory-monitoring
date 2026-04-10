@@ -258,7 +258,6 @@ def update_product_quantity(request, item_id):
         response['HX-Trigger'] = 'qtyError'
         return response
 
-    # ... reszta logiki zapisu (jak wcześniej) ...
     if diff > 0:
         batch.current_stock -= diff
     else:
@@ -314,3 +313,12 @@ def work_order_delete(request, pk):
         return redirect('work_order_list')
 
     return HttpResponse(status=405)  # Tylko POST jest dozwolony
+
+@login_required
+@require_POST
+def update_order_description(request, pk):
+    order = get_object_or_404(WorkOrder, pk=pk, tenant=request.user.tenant)
+    if order.status == 'IN_PROGRESS':
+        order.description = request.POST.get('description', '')
+        order.save()
+    return HttpResponse(order.description)
