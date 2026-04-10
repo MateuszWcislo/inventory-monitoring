@@ -1,3 +1,4 @@
+{% load l10n %}
 <div class="modal-header bg-dark text-white px-4">
     <h5 class="modal-title d-flex align-items-center text-uppercase fs-6 fw-bold">
         <i class="bi bi-cart-plus me-2 text-primary"></i>
@@ -7,7 +8,7 @@
 </div>
 
 <form hx-post="{% url 'add_to_order_save' product.id %}"
-      hx-on::after-request="bootstrap.Modal.getInstance(document.getElementById('productModal')).hide()">
+      hx-on::after-request="const modal = bootstrap.Modal.getInstance(document.getElementById('productModal')); if(modal) modal.hide();">
     {% csrf_token %}
 
     <div class="modal-body p-4 bg-light">
@@ -34,7 +35,7 @@
                 <label class="form-label small fw-bold text-success">Cena Netto</label>
                 <div class="input-group">
                     <input type="number" name="net_price" id="id_net_price"
-                           value="{{ last_order.net_price|default:0|stringformat:'.2f' }}"
+                           value="{{ last_order.net_price|default:0|unlocalize }}"
                            step="0.01" class="form-control" required>
                 </div>
             </div>
@@ -43,7 +44,7 @@
                 <label class="form-label small fw-bold text-primary">Cena Brutto</label>
                 <div class="input-group">
                     <input type="number" name="gross_price" id="id_gross_price"
-                           value="{{ last_order.gross_price|default:0|stringformat:'.2f' }}"
+                           value="{{ last_order.gross_price|default:0|unlocalize }}"
                            step="0.01" class="form-control" required>
                 </div>
             </div>
@@ -62,17 +63,24 @@
     (function() {
         const netInput = document.getElementById('id_net_price');
         const grossInput = document.getElementById('id_gross_price');
-        const vatRate = {{ product.vat_rate|default:23 }};
+
+        // Używamy unlocalize, aby Django nie wyrenderowało przecinka w kodzie JS
+        const vatRate = {{ product.vat_rate|unlocalize|default:23 }};
+
+        // Funkcja pomocnicza do bezpiecznego parsowania liczb
+        const parseValue = (val) => {
+            return parseFloat(val.toString().replace(',', '.'));
+        };
 
         netInput.addEventListener('input', () => {
-            const net = parseFloat(netInput.value);
+            const net = parseValue(netInput.value);
             if (!isNaN(net)) {
                 grossInput.value = (net * (1 + vatRate / 100)).toFixed(2);
             }
         });
 
         grossInput.addEventListener('input', () => {
-            const gross = parseFloat(grossInput.value);
+            const gross = parseValue(grossInput.value);
             if (!isNaN(gross)) {
                 netInput.value = (gross / (1 + vatRate / 100)).toFixed(2);
             }
