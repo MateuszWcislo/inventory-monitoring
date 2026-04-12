@@ -98,32 +98,22 @@ def order_delete(request, pk):
     return render(request, 'orders/partials/confirm_delete.html', {'order': order})
 
 @login_required
-def get_filtered_options(request):
+def get_filtered_suppliers(request):
     product_id = request.GET.get('product')
-    supplier_id = request.GET.get('supplier')
     tenant = request.user.tenant
 
-    context = {
-        'selected_product': product_id,
-        'selected_supplier': supplier_id,
-    }
+    if not product_id:
+        # Jeśli użytkownik odznaczył produkt, zwracamy pustą listę
+        return HttpResponse('<option value="">--- Najpierw wybierz produkt ---</option>')
 
-    if product_id:
-        # Tutaj sprawdź w modelu Supplier, jak nazywa się relacja do produktów.
-        # Jeśli dostajesz błąd, spróbuj 'product_mappings' lub 'productsupplier_set'
-        context['suppliers'] = Supplier.objects.filter(
-            product_mappings__product_id=product_id, # Upewnij się, że w Supplier jest product_mappings
-            tenant=tenant
-        ).distinct()
+    suppliers = Supplier.objects.filter(
+        tenant=tenant,
+        product_mappings__product_id=product_id
+    ).distinct()
 
-    if supplier_id:
-        # POPRAWKA TUTAJ: Zmieniamy na supplier_mappings zgodnie z błędem z konsoli
-        context['products'] = Product.objects.filter(
-            supplier_mappings__supplier_id=supplier_id,
-            tenant=tenant
-        ).distinct()
-
-    return render(request, 'orders/partials/filtered_options.html', context)
+    return render(request, 'orders/partials/supplier_options.html', {
+        'suppliers': suppliers
+    })
 
 
 def update_inventory_stock(order, tenant):

@@ -1,6 +1,8 @@
 {% if prefix == 'suppliers' %}
     <div class="row g-2 mb-2 align-items-end border-bottom pb-2 animate__animated animate__fadeIn" data-formset-row="suppliers">
         {{ form.id }}
+        <div class="d-none">{{ form.DELETE }}</div>
+
         <div class="col-6">
             <label class="tiny-label text-muted mb-1">Dostawca</label>
             {{ form.supplier }}
@@ -15,9 +17,13 @@
             </button>
         </div>
     </div>
+
 {% else %}
+    {# Sekcja dla BATCHES (Partie) #}
     <div class="row g-2 mb-2 align-items-end border-bottom pb-2 batch-row animate__animated animate__fadeIn" data-formset-row="batches">
         {{ form.id }}
+        <div class="d-none">{{ form.DELETE }}</div>
+
         <div class="col-3">
             <label class="tiny-label text-muted mb-1">Ilość</label>
             {{ form.current_stock }}

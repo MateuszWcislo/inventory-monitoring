@@ -24,7 +24,7 @@ class Order(models.Model):
 
     tenant = models.ForeignKey('tenants.Tenant', on_delete=models.CASCADE, related_name='orders')
     product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
-    supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, related_name='orders')
+    supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
 
     # --- SNAPSHOTY (Historia - zachowanie danych nawet po usunięciu produktu) ---
     product_name_snapshot = models.CharField("Nazwa produktu", max_length=255, blank=True)

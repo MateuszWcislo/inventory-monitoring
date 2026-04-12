@@ -67,6 +67,8 @@
         {% for s_form in supp_formset %}
             <div class="row g-2 mb-2 align-items-end border-bottom pb-2" data-formset-row="suppliers">
                 {{ s_form.id }}
+                <div class="d-none">{{ s_form.DELETE }}</div>
+
                 <div class="col-6">
                     <label class="tiny-label text-muted mb-1">Dostawca</label>
                     {{ s_form.supplier }}
@@ -99,6 +101,8 @@
         {% for b_form in batch_formset %}
             <div class="row g-2 mb-2 align-items-end border-bottom pb-2 batch-row" data-formset-row="batches">
                 {{ b_form.id }}
+                <div class="d-none">{{ b_form.DELETE }}</div>
+
                 <div class="col-3">
                     <label class="tiny-label text-muted mb-1">Ilość</label>
                     {{ b_form.current_stock }}
@@ -127,39 +131,53 @@
 </form>
 
 <script>
-// Funkcja reindeksacji
+// Funkcja reindeksacji (wywoływana tylko przy DODAWANIU)
 function reindexFormset(prefix) {
     var container = document.getElementById(prefix + '-formset-container');
-    if (!container) {
-        console.error('BŁĄD: Nie znaleziono kontenera: ' + prefix + '-formset-container');
-        return;
-    }
+    if (!container) return;
 
     var rows = container.querySelectorAll('[data-formset-row="' + prefix + '"]');
     var totalForms = document.getElementById('id_' + prefix + '-TOTAL_FORMS');
 
-    for (var i = 0; i < rows.length; i++) {
-        var row = rows[i];
+    rows.forEach((row, i) => {
         var inputs = row.querySelectorAll('input, select, textarea');
-        for (var j = 0; j < inputs.length; j++) {
-            var input = inputs[j];
+        inputs.forEach(input => {
             if (input.name) {
-                // Zamiana indeksów
                 input.name = input.name.replace(/-(__prefix__|\d+)-/g, '-' + i + '-');
                 input.id = 'id_' + input.name;
             }
-        }
-    }
+        });
+    });
 
     if (totalForms) {
         totalForms.value = rows.length;
-        console.log('ZAKTUALIZOWANO ' + prefix + '. Liczba wierszy: ' + rows.length);
-    } else {
-        console.error('BŁĄD: Nie znaleziono pola TOTAL_FORMS dla: ' + prefix);
     }
 }
 
-// Reagowanie na dodanie wiersza przez HTMX
+// Funkcja usuwania dostosowana do Django Formsets
+function removeRow(btn, prefix) {
+    var row = btn.closest('[data-formset-row]');
+    if (!row) return;
+
+    // Sprawdzamy czy wiersz ma ID (czyli czy istnieje w bazie)
+    var idInput = row.querySelector('input[name*="-id"]');
+    var deleteCheckbox = row.querySelector('input[name*="-DELETE"]');
+
+    if (idInput && idInput.value) {
+        // Jeśli rekord jest w bazie, nie usuwamy go z HTML, tylko zaznaczamy DELETE i chowamy
+        if (deleteCheckbox) {
+            deleteCheckbox.checked = true;
+            row.style.display = 'none';
+            // Ważne: usuwamy klasę/atrybut, żeby reindeksacja go nie liczyła jako "aktywny"
+            // jeśli Twoja logika reindeksacji by go dotyczyła. Ale przy usuwaniu z bazy lepiej NIE reindeksować.
+        }
+    } else {
+        // Jeśli to nowy, pusty wiersz, usuwamy go całkowicie i reindeksujemy resztę
+        row.remove();
+        reindexFormset(prefix);
+    }
+}
+
 document.body.addEventListener('htmx:afterSettle', function(evt) {
     if (evt.detail.target.id === 'suppliers-formset-container') {
         reindexFormset('suppliers');
@@ -169,16 +187,6 @@ document.body.addEventListener('htmx:afterSettle', function(evt) {
     }
 });
 
-// Funkcja usuwania
-function removeRow(btn, prefix) {
-    var row = btn.closest('[data-formset-row]');
-    if (row) {
-        row.remove();
-        reindexFormset(prefix);
-    }
-}
-
-// Przeliczanie cen VAT
 document.addEventListener('input', function(e) {
     var row = e.target.closest('.batch-row');
     if (!row) return;

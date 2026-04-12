@@ -19,65 +19,107 @@ class OrderForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         # 1. Atrybuty HTMX dla Produktu
-        # Dodajemy 'hx-include': '#id_supplier', aby nie zgubić wybranego dostawcy
         self.fields['product'].widget = forms.Select(attrs={
             'class': 'form-select',
-            'hx-get': reverse('get_filtered_options'),
+            'hx-get': reverse('get_filtered_suppliers'),
             'hx-target': '#id_supplier',
-            'hx-include': '#id_supplier',  # KLUCZOWE: dołącza wartość dostawcy do requesta
             'hx-trigger': 'change',
             'onchange': 'updateVatRate(this)'
         })
 
-        # 2. Atrybuty HTMX dla Dostawcy
-        # Dodajemy 'hx-include': '#id_product', aby nie zgubić wybranego produktu
-        self.fields['supplier'].widget = forms.Select(attrs={
-            'class': 'form-select',
-            'hx-get': reverse('get_filtered_options'),
-            'hx-target': '#id_product',
-            'hx-include': '#id_product',  # KLUCZOWE: dołącza wartość produktu do requesta
-            'hx-trigger': 'change'
-        })
+        # 2. Stylizacja pola Dostawcy
+        self.fields['supplier'].widget.attrs.update({'class': 'form-select'})
 
-        # 3. Stylizacja pozostałych pól
+        # 3. Stylizacja pozostałych pól i obsługa stanu "Produkt usunięty"
+        is_product_removed = self.instance.pk and not self.instance.product
+
         for name, field in self.fields.items():
             if name not in ['product', 'supplier', 'order_type', 'status']:
                 field.widget.attrs.update({'class': 'form-control'})
 
+            # Jeśli produkt został usunięty, blokujemy większość pól (zostawiamy status)
+            if is_product_removed and name != 'status':
+                field.disabled = True
+                if name == 'product':
+                    field.help_text = f"Oryginalny produkt: {self.instance.product_name_snapshot} (USUNIĘTY)"
+
         # 4. Querysety i dane dla Tenanta
         if self.user:
-            tenant_products = Product.objects.filter(tenant=self.user.tenant)
-            self.fields['product'].queryset = tenant_products
-            self.fields['supplier'].queryset = Supplier.objects.filter(tenant=self.user.tenant)
+            tenant = self.user.tenant
 
-            # Słownik VAT dla JS
+            # Produkty tylko aktywne dla tego tenanta
+            tenant_products = Product.objects.filter(tenant=tenant)
+            self.fields['product'].queryset = tenant_products
+
+            # Logika filtrowania dostawców
+            if self.instance and self.instance.product:
+                # Jeśli produkt istnieje, pokazujemy tylko powiązanych dostawców
+                self.fields['supplier'].queryset = Supplier.objects.filter(
+                    tenant=tenant,
+                    product_mappings__product=self.instance.product
+                ).distinct()
+            elif is_product_removed:
+                # Jeśli produkt usunięty, lista dostawców jest pusta (nie ma z czym wiązać)
+                self.fields['supplier'].queryset = Supplier.objects.none()
+            else:
+                # Nowe zamówienie - czekamy na wybór produktu przez HTMX
+                self.fields['supplier'].queryset = Supplier.objects.none()
+
+            # Słownik VAT dla JS (tylko jeśli produkt istnieje)
             self.product_vats = {str(p.id): float(p.vat_rate) for p in tenant_products}
 
-        # Domyślny typ dla nowych zamówień ręcznych
         if not self.instance.pk:
             self.fields['order_type'].initial = 'MANUAL'
+
 
     def clean(self):
         cleaned_data = super().clean()
         order_type = cleaned_data.get('order_type')
         product = cleaned_data.get('product')
+        supplier = cleaned_data.get('supplier')
+        tenant = self.user.tenant
 
-        if order_type == 'AUTO' and product:
+        # 1. Blokada edycji osieroconego zamówienia (Twoja logika - zostaje)
+        if self.instance.pk and not self.instance.product:
+            new_status = cleaned_data.get('status')
+            if new_status != 'CANCELLED':
+                self.add_error('status', 'Dla zamówień bez powiązanego produktu jedyną opcją jest anulowanie.')
+            return cleaned_data
+
+        # 2. BEZPIECZEŃSTWO: Sprawdź czy produkt należy do Tenanta (Cross-tenant prevention)
+        if product and product.tenant != tenant:
+            raise forms.ValidationError("Nieprawidłowy produkt.")
+
+        # 3. Walidacja powiązania dostawcy
+        if product and supplier:
+            # Upewnij się, że dostawca też należy do tego samego Tenanta
+            if supplier.tenant != tenant:
+                self.add_error('supplier', 'Nieprawidłowy dostawca.')
+
+            is_valid = product.supplier_mappings.filter(supplier=supplier).exists()
+            if not is_valid:
+                self.add_error('supplier', 'Ten dostawca nie jest przypisany do wybranego produktu.')
+
+        # 4. Automatyczne podpowiadanie cen (Twoja logika - zostaje)
+        if order_type == 'AUTO' and product and not self.instance.pk:
             last_order = Order.objects.filter(
                 product=product,
-                tenant=self.user.tenant
+                tenant=tenant,
+                status='COMPLETED'
             ).order_by('-created_at').first()
 
             if last_order:
                 if not cleaned_data.get('net_price'):
                     cleaned_data['net_price'] = last_order.net_price
-                if not cleaned_data.get('gross_price'):
                     cleaned_data['gross_price'] = last_order.gross_price
                 if not cleaned_data.get('supplier'):
-                    cleaned_data['supplier'] = last_order.supplier
+                    if product.supplier_mappings.filter(supplier=last_order.supplier).exists():
+                        cleaned_data['supplier'] = last_order.supplier
 
+        # 5. Walidacja ceny dla zamówień ręcznych (Twoja logika - zostaje)
         if order_type == 'MANUAL':
             if not cleaned_data.get('net_price') and not cleaned_data.get('gross_price'):
-                self.add_error('net_price', 'Dla zamówienia ręcznego podaj cenę.')
+                if not self.instance.pk or self.instance.product:
+                    self.add_error('net_price', 'Dla zamówienia ręcznego podaj cenę.')
 
         return cleaned_data

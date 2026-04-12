@@ -1,0 +1,7 @@
+<option value="">--- Wybierz dostawcę ---</option>
+{% for s in suppliers %}
+    <option value="{{ s.id }}">{{ s.name }}</option>
+{% endfor %}
+{% if not suppliers %}
+    <option value="">Brak dostawców przypisanych do tego produktu</option>
+{% endif %}

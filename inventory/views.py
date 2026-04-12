@@ -8,6 +8,7 @@ from .models import Product, ProductBatch, ProductSupplier
 from .forms import ProductForm, SupplierFormSet, BatchFormSet
 from orders.models import Order
 from suppliers.models import Supplier
+from orders.utils import process_auto_order_logic
 import json
 
 @login_required
@@ -126,9 +127,9 @@ def product_create(request):
         'title': 'Dodaj produkt'
     })
 
+
 @login_required
 def product_edit(request, pk):
-    # Pobieramy produkt (upewniając się, że należy do tenanta)
     product = get_object_or_404(Product, pk=pk, tenant=request.user.tenant)
 
     if request.method == "POST":
@@ -137,44 +138,42 @@ def product_edit(request, pk):
         batch_formset = BatchFormSet(request.POST, instance=product, prefix='batches')
 
         if form.is_valid() and supp_formset.is_valid() and batch_formset.is_valid():
-            # 1. Zapisujemy główny produkt
+            # 1. Zapisujemy produkt
             product = form.save()
 
             # 2. Zapisujemy dostawców
-            # Najpierw zajmujemy się nowymi/zmienionymi obiektami
-            suppliers = supp_formset.save(commit=False)
-            for s in suppliers:
-                if not hasattr(s, 'tenant') or not s.tenant:
-                    s.tenant = request.user.tenant
-                s.save()
+            # Używamy commit=True (domyślne), aby Django samo obsłużyło usuwanie rekordów
+            # które mają zaznaczony checkbox DELETE.
+            supp_instances = supp_formset.save(commit=False)
 
-            # Kluczowe: usuwamy obiekty zaznaczone do skasowania!
+            # Ręcznie usuwamy obiekty zaznaczone do skasowania
             for obj in supp_formset.deleted_objects:
                 obj.delete()
 
-            # 3. Zapisujemy partie
-            batches = batch_formset.save(commit=False)
-            for b in batches:
-                if not hasattr(b, 'tenant') or not b.tenant:
-                    b.tenant = request.user.tenant
-                # b.product zostanie ustawione automatycznie dzięki instance=product w formsecie
-                b.save()
+            for instance in supp_instances:
+                instance.tenant = request.user.tenant
+                instance.save()
 
+            # 3. Zapisujemy partie (Batche)
+            batch_instances = batch_formset.save(commit=False)
+
+            # Ręcznie usuwamy partie zaznaczone do skasowania
             for obj in batch_formset.deleted_objects:
                 obj.delete()
 
-            # Opcjonalne: jeśli masz relacje ManyToMany, wywołaj save_m2m()
-            # supp_formset.save_m2m()
-            # batch_formset.save_m2m()
+            for instance in batch_instances:
+                instance.tenant = request.user.tenant
+                instance.save()
+
+            # --- KLUCZ: ODŚWIEŻENIE I LOGIKA AUTO ---
+            # Po usunięciu batchy musimy wymusić przeliczenie stanu w bazie
+            product.refresh_from_db()
+
+            # Wywołujemy Twoją logikę z orders/utils.py
+            process_auto_order_logic(product)
 
             return HttpResponse(status=204, headers={'HX-Trigger': 'productChanged'})
-        else:
-            # Debugowanie błędów w konsoli jeśli walidacja nie przejdzie
-            print("Błędy Formularza:", form.errors)
-            print("Błędy Dostawców:", supp_formset.errors)
-            print("Błędy Partii:", batch_formset.errors)
     else:
-        # GET: Dane ładują się automatycznie dzięki instance=product
         form = ProductForm(instance=product)
         supp_formset = SupplierFormSet(instance=product, prefix='suppliers')
         batch_formset = BatchFormSet(instance=product, prefix='batches')
@@ -187,19 +186,6 @@ def product_edit(request, pk):
         'title': f'Edytuj: {product.name}'
     })
 
-# @login_required
-# def product_delete(request, pk):
-#     product = get_object_or_404(Product, pk=pk, tenant=request.user.tenant)
-#
-#     if request.method == "POST":
-#         product.delete()
-#         # Zwracamy pustą odpowiedź z triggerem do HTMX, aby odświeżyć listę
-#         return HttpResponse(status=204, headers={'HX-Trigger': 'productChanged'})
-#
-#     # Renderujemy mały formularz potwierdzenia do modala
-#     return render(request, 'inventory/partials/confirm_delete.html', {
-#         'product': product
-#     })
 
 @login_required
 def product_delete(request, pk):
