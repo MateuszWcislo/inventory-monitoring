@@ -1,31 +1,38 @@
 <div class="modal-header bg-dark text-white px-4">
     <h5 class="modal-title d-flex align-items-center text-uppercase fs-6 fw-bold">
         <i class="bi bi-cart-plus-fill me-2 text-primary"></i>
-        {% if form.instance.pk %}Edycja zamówienia{% else %}Nowe zamówienie ręczne{% endif %}
+        {% if is_edit %}Edycja zamówienia{% else %}Nowe zamówienie ręczne{% endif %}
     </h5>
     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
 </div>
 
-<form hx-post="{% if order.id %}{% url 'order_edit' order.id %}{% else %}{% url 'order_create' %}{% endif %}">    {% csrf_token %}
-    {{ form.order_type }} <div class="modal-body p-4 bg-light">
+<form hx-post="{% if order.id %}{% url 'order_edit' order.id %}{% else %}{% url 'order_create' %}{% endif %}"
+      hx-target="#order-modal-content">
+    {% csrf_token %}
+    {{ form.order_type }}
+    <div class="modal-body p-4 bg-light">
         <div class="row g-3">
             <div class="col-md-8">
                 <label class="form-label small fw-bold text-secondary">Produkt</label>
                 {{ form.product }}
+                {% if form.product.errors %}<div class="text-danger small mt-1">{{ form.product.errors }}</div>{% endif %}
             </div>
             <div class="col-md-4">
                 <label class="form-label small fw-bold text-secondary">Status</label>
                 {{ form.status }}
+                {% if form.status.errors %}<div class="text-danger small mt-1">{{ form.status.errors }}</div>{% endif %}
             </div>
 
             <div class="col-12">
                 <label class="form-label small fw-bold text-secondary">Dostawca</label>
                 {{ form.supplier }}
+                {% if form.supplier.errors %}<div class="text-danger small mt-1">{{ form.supplier.errors }}</div>{% endif %}
             </div>
 
             <div class="col-md-4">
                 <label class="form-label small fw-bold text-secondary">Ilość sztuk</label>
                 {{ form.quantity }}
+                {% if form.quantity.errors %}<div class="text-danger small mt-1">{{ form.quantity.errors }}</div>{% endif %}
             </div>
 
             <div class="col-md-4">
@@ -34,6 +41,7 @@
                     {{ form.net_price }}
                     <span class="input-group-text small">PLN</span>
                 </div>
+                {% if form.net_price.errors %}<div class="text-danger small mt-1">{{ form.net_price.errors }}</div>{% endif %}
             </div>
             <div class="col-md-4">
                 <label class="form-label small fw-bold text-secondary text-primary">Cena Brutto</label>
@@ -41,6 +49,7 @@
                     {{ form.gross_price }}
                     <span class="input-group-text small">PLN</span>
                 </div>
+                {% if form.gross_price.errors %}<div class="text-danger small mt-1">{{ form.gross_price.errors }}</div>{% endif %}
             </div>
 
             <div id="vat-info" class="col-12 mt-2">
@@ -58,24 +67,24 @@
 </form>
 
 <script>
-    // Funkcja inicjalizująca logikę formularza
     (function() {
         const productSelect = document.getElementById('id_product');
         const netInput = document.getElementById('id_net_price');
         const grossInput = document.getElementById('id_gross_price');
         const vatSpan = document.getElementById('current-vat');
 
-        // Mapa stawek VAT przekazana z Formularza
         const productVats = {{ form.product_vats|safe|default:"{}" }};
         let activeVat = 0;
 
-        function updateVatRate() {
+        window.updateVatRate = function() {
+            if (!productSelect) return;
             const productId = productSelect.value;
             activeVat = parseFloat(productVats[productId]) || 0;
             if (vatSpan) vatSpan.innerText = activeVat;
-        }
+        };
 
         function recalculateFromNet() {
+            if (!netInput || !grossInput) return;
             const net = parseFloat(netInput.value);
             if (!isNaN(net)) {
                 const gross = net * (1 + activeVat / 100);
@@ -84,6 +93,7 @@
         }
 
         function recalculateFromGross() {
+            if (!netInput || !grossInput) return;
             const gross = parseFloat(grossInput.value);
             if (!isNaN(gross)) {
                 const net = gross / (1 + activeVat / 100);
@@ -91,25 +101,21 @@
             }
         }
 
-        // Eventy dla pól cen
-        netInput.addEventListener('input', recalculateFromNet);
-        grossInput.addEventListener('input', recalculateFromGross);
+        if (netInput) netInput.addEventListener('input', recalculateFromNet);
+        if (grossInput) grossInput.addEventListener('input', recalculateFromGross);
 
-        // Event dla zmiany produktu
-        productSelect.addEventListener('change', function() {
-            updateVatRate();
-            recalculateFromNet(); // Przelicz brutto na podstawie nowego VATu
-        });
+        if (productSelect) {
+            productSelect.addEventListener('change', function() {
+                window.updateVatRate();
+                recalculateFromNet();
+            });
+        }
 
-        // INICJALIZACJA NATYCHMIASTOWA (dla HTMX)
-        // Wykonujemy od razu po wstrzyknięciu kodu do DOM
-        updateVatRate();
+        window.updateVatRate();
 
-        // Obsługa specyficzna dla Twojego filtrowania produktów (HTMX hx-get na liście produktów)
         document.body.addEventListener('htmx:afterOnLoad', function(evt) {
-            // Jeśli element, który właśnie został podmieniony to nasz select produktu
-            if (evt.detail.target.id === 'id_product') {
-                updateVatRate();
+            if (evt.detail.target && evt.detail.target.id === 'id_product') {
+                window.updateVatRate();
             }
         });
     })();

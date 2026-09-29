@@ -33,7 +33,7 @@
             {% for p in products %}
                 {% include 'inventory/partials/product_row.html' %}
             {% empty %}
-            <tr><td colspan="7" class="text-center py-5 text-muted">Brak produktów spełniających kryteria.</td></tr>
+            <tr><td colspan="8" class="text-center py-5 text-muted">Brak produktów spełniających kryteria.</td></tr>
             {% endfor %}
         </tbody>
     </table>

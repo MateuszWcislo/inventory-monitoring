@@ -1,13 +1,13 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
-from django.db import transaction, models
+from django.db import models
 from django.db.models import Case, When, Value, IntegerField
 from django.views.decorators.http import require_POST
 from .models import Order
 from .forms import OrderForm
 from suppliers.models import Supplier
-from inventory.models import Product, ProductBatch
+
 
 @login_required
 def order_list(request):
@@ -50,40 +50,36 @@ def order_create(request):
         if form.is_valid():
             order = form.save(commit=False)
             order.tenant = request.user.tenant
-            # order.order_type jest już ustawione na MANUAL w init formularza
             order.save()
             return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
     else:
         form = OrderForm(user=request.user)
 
-    # Dodaj pusty obiekt 'order', aby szablon wiedział, że to tworzenie (id będzie None)
     return render(request, 'orders/partials/order_form.html', {
         'form': form,
-        'order': None
+        'order': None,
+        'is_edit': False
     })
 
 
 @login_required
 def order_edit(request, pk):
     order = get_object_or_404(Order, pk=pk, tenant=request.user.tenant)
-    old_status = order.status # Zapamiętujemy status sprzed edycji
 
     if request.method == "POST":
         form = OrderForm(request.POST, instance=order, user=request.user)
         if form.is_valid():
-            # Zapisujemy formularz do obiektu, ale jeszcze nie do bazy
-            order = form.save(commit=False)
-
-            # Logika magazynowa: sprawdzamy, czy użytkownik właśnie zmienił status na COMPLETED
-            if order.status == 'COMPLETED' and old_status != 'COMPLETED':
-                update_inventory_stock(order, request.user.tenant)
-
-            order.save()
+            order = form.save()
             return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
     else:
         form = OrderForm(instance=order, user=request.user)
 
-    return render(request, 'orders/partials/order_form.html', {'form': form, 'order': order})
+    return render(request, 'orders/partials/order_form.html', {
+        'form': form,
+        'order': order,
+        'is_edit': True
+    })
+
 
 @login_required
 def order_delete(request, pk):
@@ -91,11 +87,10 @@ def order_delete(request, pk):
 
     if request.method == "POST":
         order.delete()
-        # Zwracamy pustą odpowiedź z triggerem do odświeżenia listy
         return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
 
-    # Dla GET zwracamy partial z pytaniem o potwierdzenie
     return render(request, 'orders/partials/confirm_delete.html', {'order': order})
+
 
 @login_required
 def get_filtered_suppliers(request):
@@ -103,7 +98,6 @@ def get_filtered_suppliers(request):
     tenant = request.user.tenant
 
     if not product_id:
-        # Jeśli użytkownik odznaczył produkt, zwracamy pustą listę
         return HttpResponse('<option value="">--- Najpierw wybierz produkt ---</option>')
 
     suppliers = Supplier.objects.filter(
@@ -116,52 +110,22 @@ def get_filtered_suppliers(request):
     })
 
 
-def update_inventory_stock(order, tenant):
-    """
-    Aktualizacja stanów: szuka Batcha o tym samym produkcie i cenie.
-    Dostawca nie jest brany pod uwagę przy grupowaniu partii.
-    """
-    if not order.product:
-        return
-
-    # Szukamy istniejącego batcha tylko po produkcie i cenach
-    batch, created = ProductBatch.objects.get_or_create(
-        product=order.product,
-        tenant=tenant,
-        purchase_price=order.net_price,
-        gross_price=order.gross_price,
-        defaults={'quantity': order.quantity}
-    )
-
-    if not created:
-        # Jeśli partia o tej cenie już istnieje, po prostu zwiększamy jej stan
-        batch.quantity += order.quantity
-        batch.save()
-
-    # Wywołujemy save na produkcie, aby odświeżyć property total_stock
-    # i sprawdzić, czy nie trzeba usunąć innych auto-szkiców zamówień
-    order.product.save()
-
-
 @login_required
 @require_POST
 def order_status_update(request, pk):
     order = get_object_or_404(Order, pk=pk, tenant=request.user.tenant)
     new_status = request.POST.get('status')
 
-    # Definiujemy dozwolone przejścia dla bezpieczeństwa
     allowed_transitions = {
         'CREATED': ['ORDERED', 'COMPLETED', 'CANCELLED'],
         'ORDERED': ['COMPLETED', 'CANCELLED'],
-        'COMPLETED': [],  # Zakończonych zazwyczaj nie zmieniamy szybko
-        'CANCELLED': ['CREATED'],  # Możliwość przywrócenia do szkicu
+        'COMPLETED': [],
+        'CANCELLED': ['CREATED'],
     }
 
     if new_status in allowed_transitions.get(order.status, []):
         order.status = new_status
         order.save()
-
-        # Zwracamy sygnał do HTMX, aby odświeżył listę zamówień
         return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
 
     return HttpResponse("Niedozwolona zmiana statusu", status=400)
@@ -170,7 +134,6 @@ def order_status_update(request, pk):
 @login_required
 @require_POST
 def order_reorder(request, pk):
-    # Pobieramy oryginał
     original_order = get_object_or_404(Order, pk=pk, tenant=request.user.tenant)
 
     Order.objects.create(
@@ -180,9 +143,8 @@ def order_reorder(request, pk):
         quantity=original_order.quantity,
         net_price=original_order.net_price,
         gross_price=original_order.gross_price,
-        order_type='MANUAL',  # Skoro klikasz przycisk, to jest to akcja manualna
-        status='CREATED'  # Zawsze zaczynamy od statusu szkicu
+        order_type='MANUAL',
+        status='CREATED'
     )
 
-    # Zwracamy sygnał do HTMX, aby odświeżył listę
     return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})

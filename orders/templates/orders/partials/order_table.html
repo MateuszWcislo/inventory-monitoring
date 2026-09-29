@@ -143,7 +143,7 @@
                             {# --- EDYCJA --- #}
                             <button class="btn btn-white text-secondary border-end px-2"
                                     hx-get="{% url 'order_edit' order.id %}"
-                                    hx-target="#modal-content"
+                                    hx-target="#order-modal-content"
                                     data-bs-toggle="modal"
                                     data-bs-target="#orderModal"
                                     title="Edytuj">
@@ -172,7 +172,7 @@
                             {# --- USUWANIE (Dla utrzymania porządku) --- #}
                             <button class="btn btn-white text-danger px-2"
                                     hx-get="{% url 'order_delete' order.id %}"
-                                    hx-target="#modal-content"
+                                    hx-target="#order-modal-content"
                                     data-bs-toggle="modal"
                                     data-bs-target="#orderModal"
                                     title="Usuń z historii">

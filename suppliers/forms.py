@@ -1,11 +1,9 @@
-# suppliers/forms.py
 from django import forms
 from .models import Supplier
 from inventory.models import Product
 
 
 class SupplierForm(forms.ModelForm):
-    # Używamy ModelMultipleChoiceField, bo daje nam łatwą listę wszystkich produktów
     products_selection = forms.ModelMultipleChoiceField(
         queryset=Product.objects.none(),
         required=False,
@@ -32,8 +30,7 @@ class SupplierForm(forms.ModelForm):
         if user:
             self.fields['products_selection'].queryset = Product.objects.filter(tenant=user.tenant).order_by('name')
 
-            if self.instance.pk:
-                # Pobieramy aktualnie przypisane produkty dla initiala
+            if self.instance.pk and not self.instance._state.adding:
                 self.fields['products_selection'].initial = Product.objects.filter(
                     supplier_mappings__supplier=self.instance
                 )

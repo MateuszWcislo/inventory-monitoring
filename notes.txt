@@ -1,3 +1,86 @@
-1. Ujednolicenie potwierdzeń.
-2. Walidacja pól - komunikaty po polsku.
-3. Activity Log
+ZAUWAŻONE BŁĘDY:
+1. W momencie dodawania nowego produktu, od razu tworzy się zamówienie automatyczne. Walidacja stanu/progu powinna odbywać się po zakończeniu całego formularza dodawania produktu.
+2. Dodanie zamówienia z zakładki Zamówienia. Otwiera się błędny formularz ‘Edycji’.
+3. W produktach widoczni są dostawcy od innych tenantów.
+
+DODATKOWE ZNALEZIONE BŁĘDY I PROBLEMY ARCHITEKTONICZNE:
+
+--- MODUŁ AUTOMATYZACJI ZAMÓWIEŃ I STANÓW (AUTO ORDERS / SIGNALS) ---
+4. Pętla nieskończona / niemożność anulowania zamówienia automatycznego:
+   - W `orders/signals.py` (`handle_order_completion`), po każdym zapisie zamówienia wywoływane jest `process_auto_order_logic(instance.product)`.
+   - Jeśli użytkownik ustawi status automatycznego szkicu na `CANCELLED`, wirtualny stan magazynowy produktu natychmiast ponownie spada poniżej `min_threshold`. W efekcie funkcja decyzyjna od razu tworzy nowy rekord zamówienia AUTO. Anulowanie zamówienia automatycznego jest w praktyce niemożliwe.
+
+5. Błędna kalkulacja zamawianej ilości w `Order.save()` vs `process_auto_order_logic()`:
+   - W `orders/models.py` w metodzie `save()` znajduje się blok:
+     `if self.order_type == 'AUTO' and self.quantity <= 1:`
+     `    self.quantity = max(1, limit - current_total)`
+   - Gdy `needed_quantity` wyliczone przez `process_auto_order_logic()` wynosi dokładnie 1, warunek ten nadpisuje wyliczoną poprawnie wartość różnicą stanu fizycznego `min_threshold - total_stock` (zamiast wirtualnego `target_stock - virtual_stock`), co drastycznie zawyża zamawianą ilość.
+
+6. Potencjalny błąd krytyczny `TypeError` przy `target_stock = None`:
+   - W `inventory/models.py` pole `target_stock` w modelu `Product` dopuszcza wartości `null=True, blank=True`.
+   - W `orders/utils.py` w `process_auto_order_logic()` następuje bezpośrednie odejmowanie: `product.target_stock - virtual_stock`. Dla produktów z niezdefiniowanym stanem docelowym (`None`) aplikacja rzuca `TypeError: unsupported operand type(s) for -: 'NoneType' and 'int'`.
+
+7. Brak przypisywania dostawcy w `process_auto_order_logic()` przy braku historii zamówień:
+   - Gdy produkt nie ma jeszcze żadnego zrealizowanego zamówienia (`last_order is None`), zamówienie automatyczne jest tworzone z `supplier=None` oraz kwotami 0.00 PLN.
+   - Kod nie korzysta z powiązanych z produktem dostawców (`product.supplier_mappings`) ani z cen zdefiniowanych w partiach (`ProductBatch`).
+
+--- MODUŁ ZAMÓWIEŃ (ORDERS) ---
+8. Błędna identyfikacja stanu formularza i blokada pól przez `UUIDField(default=uuid.uuid4)`:
+   - Modele (`Order`, `Product`, `Supplier`, itd.) generują UUID jako wartość domyślną pola `id`. Instancja utworzona w pamięci (np. `OrderForm()`) ma pole `pk` od razu wypełnione.
+   - Skutki:
+     a) W `orders/partials/order_form.html`: `{% if form.instance.pk %}` zawsze ewaluuje się do `True`, przez co przy tworzeniu nowego zamówienia wyświetla się tytuł "Edycja zamówienia" (odpowiedź na błąd nr 2).
+     b) W `orders/forms.py`: `is_product_removed = self.instance.pk and not self.instance.product` dla nowego, pustego zamówienia ewaluuje się do `True`, co blokuje edycję pól i wyświetla napis `(USUNIĘTY)`.
+     c) Walidacja `OrderForm.clean()` dla pustego produktu w nowym formularzu rzuca błąd "Dla zamówień bez powiązanego produktu jedyną opcją jest anulowanie".
+   - Prawidłowe sprawdzenie w Django dla modeli z predefiniowanym kluczem to `self.instance.pk and not self.instance._state.adding` (lub przekazywanie flagi `is_edit` z widoku).
+
+9. Błąd krytyczny `FieldError` przy ręcznej zmianie statusu zamówienia na `COMPLETED` w edycji:
+   - W `orders/views.py` funkcja `update_inventory_stock()` odpytuje `ProductBatch.objects.get_or_create(..., purchase_price=..., defaults={'quantity': ...})`.
+   - Model `ProductBatch` nie ma pól `purchase_price` ani `quantity` (nazywają się `net_price` i `current_stock`). Zmiana statusu na `COMPLETED` w `order_edit` kończy się błędem HTTP 500 (`django.core.exceptions.FieldError`).
+   - Ponadto `update_inventory_stock` dubluje działanie sygnału `handle_order_completion` w `orders/signals.py`, co po naprawie nazw pól doprowadziłoby do podwójnego dodawania towaru na stan.
+
+10. Konflikt ID kontenerów modali (`#modal-content`) w całym projekcie:
+    - `templates/base.html` zawiera modal z `<div id="modal-content">`.
+    - Pliki `orders/order_list.html`, `work_orders/order_list.html` oraz `services/service_list.html` definiują własne modale z identycznym ID `#modal-content`.
+    - W rezultacie HTMX (`hx-target="#modal-content"`) wstrzykuje treść do ukrytego modala z `base.html`, podczas gdy Bootstrap otwiera modal danej podstrony (widoczny pusty modal lub brak reakcji).
+
+11. Błąd JavaScript w formularzu zamówień (`ReferenceError: updateVatRate is not defined`):
+    - W `orders/forms.py` widżet pola produktu posiada atrybut inline `onchange="updateVatRate(this)"`.
+    - Funkcja `updateVatRate` w szablonie `order_form.html` jest zdefiniowana wewnątrz anonimowej funkcji natychmiastowej (IIFE) i nie istnieje w globalnym obiekcie `window`. Wybranie produktu w przeglądarce generuje błąd w konsoli JS.
+
+--- MODUŁ ZLECEŃ PRACY (WORK ORDERS) ---
+12. Brak importu modułu `models` w `work_orders/views.py`:
+    - W widoku `work_order_list`: `orders.filter(models.Q(...) | models.Q(...))` rzuca `NameError: name 'models' is not defined` przy próbie użycia wyszukiwarki. Brakuje `from django.db import models` lub importu `Q`.
+
+13. Podwójna definicja widoku `work_order_detail` w `work_orders/views.py`:
+    - Funkcja `work_order_detail` jest zdefiniowana w pliku dwa razy (linie 44-53 oraz 65-76). Druga definicja bezwzględnie nadpisuje pierwszą, gubiąc flagę kontekstową `can_edit = (order.status == 'IN_PROGRESS')`.
+
+14. Błąd krytyczny `AttributeError: 'ProductBatch' object has no attribute 'batch_number'`:
+    - W `work_orders/views.py` w widoku `add_product_item`: kod tworzy snapshot `name_snapshot=f"{batch.product.name} (Partia: {batch.batch_number})"`.
+    - Model `ProductBatch` nie posiada atrybutu `batch_number`. Próba dodania produktu do zlecenia kończy się awarią 500.
+
+15. Błąd krytyczny `AttributeError: 'Service' object has no attribute 'unit_price_net'`:
+    - W `work_orders/views.py` w widoku `add_service_item`: pobierana jest właściwość `service_obj.unit_price_net`. Pole w modelu `Service` to `net_price`.
+
+16. Brak walidacji statusu zlecenia w akcjach modyfikacji pozycji:
+    - W `update_product_quantity`, `update_service_quantity`, `remove_product_item` oraz `remove_service_item` nie ma weryfikacji czy zlecenie nie zostało już zakończone (`order.status == 'COMPLETED'`). Pozwala to na niekontrolowane modyfikacje rozliczonych zleceń oraz manipulację stanem magazynowym po zamknięciu zlecenia.
+
+17. Podatność na `AttributeError` i ujemne ilości w `update_product_quantity`:
+    - W przypadku usunięcia partii (`product_batch` ustawione na `None` przez `SET_NULL`), wywołanie `batch.current_stock` rzuca wyjątek `NoneType`.
+    - Brak walidacji wartości `new_qty <= 0` pozwala na ustawienie ujemnej ilości w pozycji zlecenia.
+
+--- MODUŁ MAGAZYNU (INVENTORY) I MULTI-TENANCY ---
+18. Wyciek danych między tenantami (Cross-tenant leak):
+    - W `inventory/forms.py` w `SupplierFormSet`: pole wyboru dostawcy nie jest zawężone do `request.user.tenant`, przez co użytkownik widzi kontrahentów innych firm (potwierdzenie punktu 3).
+    - W `suppliers/views.py` w widoku `supplier_edit`: zapytanie GET w sekcji `else` pobiera kontrahenta przez `Supplier.objects.prefetch_related('product_mappings').get(pk=pk)` bez filtra `tenant=request.user.tenant`.
+    - W `inventory/views.py` w `add_to_order_save`: parametr `supplier_id` z żądania POST jest przypisywany do zamówienia bez walidacji, czy dany dostawca należy do firmy bieżącego użytkownika.
+
+19. Wykluczenie produktów ze stanem magazynowym 0 z filtrów "Poniżej progu" i "Brak towaru":
+    - W `inventory/views.py` w `product_list`: adnotacja `computed_total_stock=Sum('batches__current_stock')` dla produktów bez partii zwraca `NULL`.
+    - W zapytaniach SQL warunki `NULL < min_threshold` oraz `NULL <= 0` zwracają `UNKNOWN` (odrzucenie rekordu). W rezultacie produkty z zerowym stanem nie pojawiają się w filtrach braków magazynowych. Wymagane użycie `Coalesce(Sum('batches__current_stock'), Value(0))`.
+
+20. Problem wydajnościowy N+1 zapytań SQL w liście produktów:
+    - W szablonie `product_row.html` dla każdego wiersza wywoływane są `p.active_batches`, wielokrotnie metoda `p.total_stock` (generująca osobne zapytanie agregujące) oraz `p.supplier_mappings.all`.
+    - Widok `product_list` nie stosuje `prefetch_related` ani nie wykorzystuje wyliczonego już `computed_total_stock`, co generuje dziesiątki dodatkowych zapytań SQL przy każdym przeładowaniu tabeli.
+
+21. Błędna siatka kolumn w pustej tabeli produktów:
+    - W `product_table.html` komunikat o braku produktów ma atrybut `colspan="7"`, podczas gdy nagłówek tabeli posiada 8 kolumn (rozbicie struktury tabeli).

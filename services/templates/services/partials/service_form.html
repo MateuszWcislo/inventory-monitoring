@@ -3,24 +3,28 @@
     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
 </div>
 <form hx-post="{{ request.path }}"
+      hx-target="#service-modal-content"
       hx-on::after-request="if(event.detail.successful) bootstrap.Modal.getInstance(document.getElementById('serviceModal')).hide()">
     {% csrf_token %}
     <div class="modal-body px-4">
         <div class="mb-3">
             <label class="form-label fw-semibold small text-uppercase">Nazwa usługi</label>
             {{ form.name }}
+            {% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors }}</div>{% endif %}
         </div>
         <div class="row">
             <div class="col-md-7">
                 <div class="mb-3">
                     <label class="form-label fw-semibold small text-uppercase">Cena Netto (PLN)</label>
                     {{ form.net_price }}
+                    {% if form.net_price.errors %}<div class="text-danger small mt-1">{{ form.net_price.errors }}</div>{% endif %}
                 </div>
             </div>
             <div class="col-md-5">
                 <div class="mb-3">
                     <label class="form-label fw-semibold small text-uppercase">VAT (%)</label>
                     {{ form.vat_rate }}
+                    {% if form.vat_rate.errors %}<div class="text-danger small mt-1">{{ form.vat_rate.errors }}</div>{% endif %}
                 </div>
             </div>
         </div>

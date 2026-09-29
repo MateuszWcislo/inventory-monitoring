@@ -2,21 +2,23 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.db import transaction
-from django.db.models import Q, Sum, F
+from django.db.models import Q, Sum, F, Value
+from django.db.models.functions import Coalesce
+from decimal import Decimal
 
 from .models import Product, ProductBatch, ProductSupplier
 from .forms import ProductForm, SupplierFormSet, BatchFormSet
 from orders.models import Order
 from suppliers.models import Supplier
 from orders.utils import process_auto_order_logic
-import json
+
 
 @login_required
 def product_list(request):
-    # 1. Pobieramy bazowy QuerySet z wyliczonym stanem (do sortowania)
+    # 1. Pobieramy bazowy QuerySet z wyliczonym stanem (używając Coalesce dla produktów bez partii)
     products = Product.objects.filter(tenant=request.user.tenant).annotate(
-        computed_total_stock=Sum('batches__current_stock')
-    )
+        computed_total_stock=Coalesce(Sum('batches__current_stock'), Value(0))
+    ).prefetch_related('batches', 'supplier_mappings__supplier')
 
     # 2. POBIERANIE PARAMETRÓW
     query = request.GET.get('q', '').strip()
@@ -63,7 +65,7 @@ def product_list(request):
         'suppliers': Supplier.objects.filter(tenant=request.user.tenant),
         'current_sort': sort_by,
         'current_direction': direction,
-        'current_filters_params': qd.urlencode(),  # parametry bez sortowania
+        'current_filters_params': qd.urlencode(),
     }
 
     if request.headers.get('HX-Request'):
@@ -81,43 +83,42 @@ def home_redirect(request):
 def product_create(request):
     if request.method == "POST":
         form = ProductForm(request.POST)
-        # Inicjalizujemy bez instance, bo produkt jeszcze nie istnieje
-        supp_formset = SupplierFormSet(request.POST, prefix='suppliers')
+        supp_formset = SupplierFormSet(request.POST, prefix='suppliers', tenant=request.user.tenant)
         batch_formset = BatchFormSet(request.POST, prefix='batches')
 
         if form.is_valid() and supp_formset.is_valid() and batch_formset.is_valid():
-            # 1. Zapisujemy produkt
-            product = form.save(commit=False)
-            product.tenant = request.user.tenant
-            product.save()
+            with transaction.atomic():
+                # 1. Zapisujemy produkt (z flagą _skip_signal, żeby nie tworzyć zamówienia przed zapisaniem partii)
+                product = form.save(commit=False)
+                product.tenant = request.user.tenant
+                product._skip_signal = True
+                product.save()
 
-            # 2. Zapisujemy dostawców
-            # Ustawiamy instance ręcznie, żeby powiązać z nowym produktem
-            supp_formset.instance = product
-            suppliers = supp_formset.save(commit=False)
-            for s in suppliers:
-                s.tenant = request.user.tenant
-                s.save()
-            # To ważne dla usuniętych wierszy:
-            supp_formset.save_m2m()
+                # 2. Zapisujemy dostawców
+                supp_formset.instance = product
+                suppliers = supp_formset.save(commit=False)
+                for s in suppliers:
+                    s.tenant = request.user.tenant
+                    s.save()
+                supp_formset.save_m2m()
 
-            # 3. Zapisujemy partie
-            batch_formset.instance = product
-            batches = batch_formset.save(commit=False)
-            for b in batches:
-                b.tenant = request.user.tenant
-                b.save()
-            batch_formset.save_m2m()
+                # 3. Zapisujemy partie (z flagą _skip_signal)
+                batch_formset.instance = product
+                batches = batch_formset.save(commit=False)
+                for b in batches:
+                    b.tenant = request.user.tenant
+                    b._skip_signal = True
+                    b.save()
+                batch_formset.save_m2m()
+
+            # 4. Sprawdzamy stan magazynowy i ewentualne zamówienie automatyczne dopiero po zapisaniu całego formularza
+            product.refresh_from_db()
+            process_auto_order_logic(product)
 
             return HttpResponse(status=204, headers={'HX-Trigger': 'productChanged'})
-        else:
-            # Jeśli są błędy, wyświetlamy je w konsoli do debugowania
-            print("Błędy Formularza:", form.errors)
-            print("Błędy Dostawców:", supp_formset.errors)
-            print("Błędy Partii:", batch_formset.errors)
     else:
         form = ProductForm()
-        supp_formset = SupplierFormSet(prefix='suppliers')
+        supp_formset = SupplierFormSet(prefix='suppliers', tenant=request.user.tenant)
         batch_formset = BatchFormSet(prefix='batches')
 
     return render(request, 'inventory/partials/product_form.html', {
@@ -134,48 +135,44 @@ def product_edit(request, pk):
 
     if request.method == "POST":
         form = ProductForm(request.POST, instance=product)
-        supp_formset = SupplierFormSet(request.POST, instance=product, prefix='suppliers')
+        supp_formset = SupplierFormSet(request.POST, instance=product, prefix='suppliers', tenant=request.user.tenant)
         batch_formset = BatchFormSet(request.POST, instance=product, prefix='batches')
 
         if form.is_valid() and supp_formset.is_valid() and batch_formset.is_valid():
-            # 1. Zapisujemy produkt
-            product = form.save()
+            with transaction.atomic():
+                product = form.save(commit=False)
+                product._skip_signal = True
+                product.save()
 
-            # 2. Zapisujemy dostawców
-            # Używamy commit=True (domyślne), aby Django samo obsłużyło usuwanie rekordów
-            # które mają zaznaczony checkbox DELETE.
-            supp_instances = supp_formset.save(commit=False)
+                # Usuwamy powiązania zaznaczone do skasowania
+                for obj in supp_formset.deleted_objects:
+                    obj.delete()
 
-            # Ręcznie usuwamy obiekty zaznaczone do skasowania
-            for obj in supp_formset.deleted_objects:
-                obj.delete()
+                supp_instances = supp_formset.save(commit=False)
+                for instance in supp_instances:
+                    instance.tenant = request.user.tenant
+                    instance.save()
+                supp_formset.save_m2m()
 
-            for instance in supp_instances:
-                instance.tenant = request.user.tenant
-                instance.save()
+                # Partie zaznaczone do skasowania
+                for obj in batch_formset.deleted_objects:
+                    obj.delete()
 
-            # 3. Zapisujemy partie (Batche)
-            batch_instances = batch_formset.save(commit=False)
+                batch_instances = batch_formset.save(commit=False)
+                for instance in batch_instances:
+                    instance.tenant = request.user.tenant
+                    instance._skip_signal = True
+                    instance.save()
+                batch_formset.save_m2m()
 
-            # Ręcznie usuwamy partie zaznaczone do skasowania
-            for obj in batch_formset.deleted_objects:
-                obj.delete()
-
-            for instance in batch_instances:
-                instance.tenant = request.user.tenant
-                instance.save()
-
-            # --- KLUCZ: ODŚWIEŻENIE I LOGIKA AUTO ---
-            # Po usunięciu batchy musimy wymusić przeliczenie stanu w bazie
+            # Po edycji przeliczamy zapotrzebowanie
             product.refresh_from_db()
-
-            # Wywołujemy Twoją logikę z orders/utils.py
             process_auto_order_logic(product)
 
             return HttpResponse(status=204, headers={'HX-Trigger': 'productChanged'})
     else:
         form = ProductForm(instance=product)
-        supp_formset = SupplierFormSet(instance=product, prefix='suppliers')
+        supp_formset = SupplierFormSet(instance=product, prefix='suppliers', tenant=request.user.tenant)
         batch_formset = BatchFormSet(instance=product, prefix='batches')
 
     return render(request, 'inventory/partials/product_form.html', {
@@ -195,7 +192,7 @@ def product_delete(request, pk):
         response = HttpResponse("")
         response['HX-Trigger'] = 'productChanged'
         return response
-    return render(request, 'inventory/partials/confirm_delete.html', {'product': product})
+    return render(request, 'inventory/partials/confirm_delete.html', {'product': product})\
 
 
 # --- AKCJE MASOWE (BULK) ---
@@ -209,22 +206,21 @@ def product_bulk_delete(request):
     return HttpResponse(status=400)
 
 
-
-
-
 # --- LOGIKA STANÓW (BATCHES) ---
 
 @login_required
 def quick_update_batch_stock(request, batch_id):
-    """Zmienione: zwraca 'p' zamiast 'product' dla zgodności z row.html"""
+    """Szybka edycja stanu partii bezpośrednio z listy"""
     batch = get_object_or_404(ProductBatch, id=batch_id, tenant=request.user.tenant)
     if request.method == "POST":
         new_stock = request.POST.get('new_stock')
         if new_stock is not None:
-            batch.current_stock = int(new_stock)
-            batch.save()
+            try:
+                batch.current_stock = max(0, int(new_stock))
+                batch.save()
+            except (ValueError, TypeError):
+                pass
 
-    # Przekazujemy 'p', bo w product_row.html używasz {{ p.name }} itp.
     return render(request, 'inventory/partials/product_row.html', {'p': batch.product})
 
 
@@ -236,9 +232,11 @@ def toggle_favourite(request, pk):
     product.is_favourite = not product.is_favourite
     product.save()
 
-    # Przeładowuje całą tabelę (można też zoptymalizować do samego wiersza)
-    products = Product.objects.filter(tenant=request.user.tenant).order_by('-is_favourite', 'name')
+    products = Product.objects.filter(tenant=request.user.tenant).annotate(
+        computed_total_stock=Coalesce(Sum('batches__current_stock'), Value(0))
+    ).prefetch_related('batches', 'supplier_mappings__supplier').order_by('-is_favourite', 'name')
     return render(request, 'inventory/partials/product_table.html', {'products': products})
+
 
 # --- ZAMÓWIENIA ---
 
@@ -246,15 +244,12 @@ def toggle_favourite(request, pk):
 def add_to_order_modal(request, pk):
     product = get_object_or_404(Product, pk=pk, tenant=request.user.tenant)
 
-    # Pobieramy ostatnie zamówienie, żeby podpowiedzieć dostawcę i cenę
     last_order = product.orders.filter(status='COMPLETED').order_by('-created_at').first()
 
-    # Jeśli nie ma historii, bierzemy pierwszego przypisanego dostawcę (opcjonalnie)
     default_supplier = None
     if last_order:
         default_supplier = last_order.supplier
     else:
-        # Zakładam, że relacja to product.supplier_mappings
         first_mapping = product.supplier_mappings.first()
         if first_mapping:
             default_supplier = first_mapping.supplier
@@ -266,34 +261,56 @@ def add_to_order_modal(request, pk):
         'suppliers': [m.supplier for m in product.supplier_mappings.all()]
     })
 
+
 @login_required
 def add_to_order_save(request, pk):
     if request.method == "POST":
         product = get_object_or_404(Product, id=pk, tenant=request.user.tenant)
         supplier_id = request.POST.get('supplier_id')
 
-        # Tworzymy nowe, czyste zamówienie MANUAL
+        supplier = None
+        if supplier_id:
+            supplier = get_object_or_404(Supplier, id=supplier_id, tenant=request.user.tenant)
+
+        try:
+            quantity = int(request.POST.get('quantity', 1))
+            if quantity < 1:
+                quantity = 1
+        except (ValueError, TypeError):
+            quantity = 1
+
+        try:
+            net_raw = str(request.POST.get('net_price', '0')).replace(',', '.')
+            net_price = Decimal(net_raw) if net_raw else Decimal('0.00')
+        except Exception:
+            net_price = Decimal('0.00')
+
+        try:
+            gross_raw = str(request.POST.get('gross_price', '')).replace(',', '.')
+            gross_price = Decimal(gross_raw) if gross_raw else None
+        except Exception:
+            gross_price = None
+
         Order.objects.create(
             product=product,
             tenant=request.user.tenant,
-            supplier_id=supplier_id,
-            quantity=request.POST.get('quantity'),
-            net_price=request.POST.get('net_price'),
-            gross_price=request.POST.get('gross_price'),
+            supplier=supplier,
+            quantity=quantity,
+            net_price=net_price,
+            gross_price=gross_price,
             order_type='MANUAL',
             status='CREATED'
         )
         return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
 
+
 def add_supplier_row(request):
-    # Tworzymy formset - prefix musi zgadzać się z tym w widoku głównym
-    formset = SupplierFormSet(queryset=ProductSupplier.objects.none(), prefix='suppliers')
-    # Używamy empty_form zamiast forms[0] - to usuwa IndexError
+    tenant = getattr(request.user, 'tenant', None) if request.user.is_authenticated else None
+    formset = SupplierFormSet(queryset=ProductSupplier.objects.none(), prefix='suppliers', tenant=tenant)
     form = formset.empty_form
 
-    # Przekazujemy tenant_id do początkowych danych formularza
-    if hasattr(request.user, 'tenant') and request.user.tenant:
-        form.initial['tenant'] = request.user.tenant.id
+    if tenant:
+        form.initial['tenant'] = tenant.id
 
     return render(request, 'inventory/partials/formset_row.html', {
         'form': form,
@@ -305,7 +322,7 @@ def add_batch_row(request):
     formset = BatchFormSet(queryset=ProductBatch.objects.none(), prefix='batches')
     form = formset.empty_form
 
-    if hasattr(request.user, 'tenant') and request.user.tenant:
+    if hasattr(request.user, 'tenant') and request.user.is_authenticated and request.user.tenant:
         form.initial['tenant'] = request.user.tenant.id
 
     return render(request, 'inventory/partials/formset_row.html', {

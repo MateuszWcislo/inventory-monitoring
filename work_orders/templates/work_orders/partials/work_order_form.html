@@ -3,6 +3,7 @@
     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
 <form hx-post="{% url 'work_order_create' %}"
+      hx-target="#work-order-modal-content"
       hx-on::after-request="if(event.detail.successful) bootstrap.Modal.getInstance(document.getElementById('orderModal')).hide()">
     {% csrf_token %}
     <div class="modal-body">

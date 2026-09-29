@@ -1,5 +1,5 @@
 import uuid
-from django.db import models, transaction
+from django.db import models
 from decimal import Decimal, ROUND_HALF_UP
 from inventory.models import Product, ProductSupplier
 from suppliers.models import Supplier
@@ -57,42 +57,30 @@ class Order(models.Model):
 
         # 2. Logika dla NOWYCH rekordów
         if is_new:
-            # A. Nadawanie numeru zamówienia (licznik w ramach Tenanta)
+            # Nadawanie numeru zamówienia (licznik w ramach Tenanta)
             last_order = Order.objects.filter(tenant=self.tenant).order_by('-order_number').first()
             self.order_number = (last_order.order_number + 1) if last_order and last_order.order_number else 1
 
-            # B. Snapshoty danych produktu
-            if self.product:
-                if not self.product_name_snapshot:
-                    self.product_name_snapshot = self.product.name
+        # 3. Snapshoty danych (przy tworzeniu lub gdy nie były wcześniej uzupełnione)
+        if self.product and not self.product_name_snapshot:
+            self.product_name_snapshot = self.product.name
 
-                # Snapshot SKU dostawcy
-                if self.supplier:
-                    mapping = ProductSupplier.objects.filter(
-                        product=self.product,
-                        supplier=self.supplier
-                    ).first()
-                    if mapping:
-                        self.supplier_sku_snapshot = mapping.supplier_sku
+        if self.product and self.supplier and not self.supplier_sku_snapshot:
+            mapping = ProductSupplier.objects.filter(
+                product=self.product,
+                supplier=self.supplier
+            ).first()
+            if mapping and mapping.supplier_sku:
+                self.supplier_sku_snapshot = mapping.supplier_sku
 
-                # C. Wyliczenie ilości dla zamówień AUTO
-                # (Jeśli quantity nie zostało podane wcześniej przez metodę check_auto_order)
-                if self.order_type == 'AUTO' and self.quantity <= 1:
-                    current_total = self.product.total_stock
-                    limit = self.product.min_threshold
-                    self.quantity = max(1, limit - current_total)
-
-            # D. Snapshot opiekuna
-            if self.supplier and self.supplier.representative:
-                self.representative_snapshot = self.supplier.representative
+        if self.supplier and self.supplier.representative and not self.representative_snapshot:
+            self.representative_snapshot = self.supplier.representative
 
         super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "Zamówienie"
         verbose_name_plural = "Zamówienia"
-        # Sortowanie będzie realizowane w widoku przez status_group,
-        # ale tutaj ustawiamy domyślne po dacie.
         ordering = ['-created_at']
 
     def __str__(self):
