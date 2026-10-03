@@ -1,0 +1,95 @@
+LISTA ZNALEZIONYCH BŁĘDÓW - ANALIZA JUNIE (Status po poprawkach)
+
+--- KONTEKST PROJEKTU I CELE ---
+* Obecny etap: Budowa lokalnej aplikacji MVP, analiza wymagań i funkcjonalności.
+* Środowisko docelowe: Produkcja w chmurze (GCP lub AWS).
+* Architektura docelowa: Multi-tenancy, chmurowa baza SQL.
+* Cel Junie: Wsparcie w czyszczeniu logiki lokalnej i przygotowanie pod skalowalną architekturę chmurową.
+
+--- MODUŁ AUTOMATYZACJI I ZAMÓWIEŃ (ORDERS) ---
+1. Pętla nieskończona w automatyzacji zamówień [NAPRAWIONO]:
+   - W `inventory/models.py` poprawiono `get_virtual_stock()`, aby uwzględniał tylko zamówienia `CREATED` i `ORDERED`, wykluczając `CANCELLED`.
+   - W `orders/utils.py` dodano zabezpieczenie przed nadmiarowym zwiększaniem ilości w istniejących szkicach.
+
+2. Błędna kalkulacja ilości w `process_auto_order_logic` [CZĘŚCIOWO POPRAWIONO]:
+   - Dodano komentarze i wstępną logikę sprawdzającą, ale pełna synchronizacja z wirtualnym stanem wymaga dalszych testów integracyjnych.
+
+3. Problem z UUID i rozpoznawaniem nowych obiektów [NAPRAWIONO]:
+   - W `orders/templates/orders/partials/order_form.html` poprawiono logikę wyboru adresu URL, zastępując niedozwolone `form.instance._state.adding` flagą `is_edit` przekazywaną z widoku.
+   - Naprawiono błąd `TemplateSyntaxError` związany z dostępem do prywatnych atrybutów modelu w szablonach Django.
+   - Poprawiono przekazywanie danych VAT do JavaScript w formularzu zamówienia (użycie `json.dumps` zamiast bezpośredniego słownika w szablonie).
+
+4. Błąd JavaScript w `order_form.html` [W TRAKCIE]:
+   - Problem nadal istnieje w formie "brudnego" fixa w `OrderForm`. Wymaga globalnego uporządkowania skryptów JS.
+
+--- MODUŁ ZLECEŃ PRACY (WORK ORDERS) ---
+5. Błąd krytyczny: Brak importu `models` w `work_orders/views.py` [NAPRAWIONO]:
+   - Dodano `from django.db import models` w `work_orders/views.py`.
+
+6. Usunięcie `ProductBatch` a spójność danych [NAPRAWIONO]:
+   - Zmieniono `on_delete=models.SET_NULL` na `on_delete=models.PROTECT` dla `product_batch` w `WorkOrderProduct`. Uniemożliwia to usunięcie partii, która jest powiązana ze zleceniem.
+
+--- MODUŁ MAGAZYNU (INVENTORY) ---
+7. N+1 zapytań w `product_list` [NAPRAWIONO]:
+   - W `inventory/models.py` zoptymalizowano `active_batches` korzystając z cache prefetchingu.
+   - W `product_row.html` zmieniono wywołania na `computed_total_stock` oraz filtry Django zamiast metod QuerySet.
+
+8. Konflikty ID modali i HTMX [NAPRAWIONO]:
+   - W `inventory/views.py` w `add_to_order_save` poprawiono trigger z `ordersChanged` na `productChanged`, co umożliwia poprawne zamknięcie modala na liście produktów.
+
+9. Brak adnotacji sumy przy HTMX (Regression) [NAPRAWIONO]:
+   - W `quick_update_batch_stock` brakowało adnotacji `computed_total_stock` przy renderowaniu `product_row.html`, co powodowało znikanie sumy po edycji partii.
+
+10. Wyciek danych (Cross-tenant leak) [DO DALSZEJ ANALIZY]:
+   - Zabezpieczono formsety, ale widoki edycji wymagają dodatkowej weryfikacji filtrów `tenant`.
+
+11. Wykluczenie produktów ze stanem 0 z filtrów [NAPRAWIONO]:
+    - Potwierdzono użycie `Coalesce` w widokach, co poprawnie obsługuje produkty bez partii.
+
+12. Pusta tabela produktów (colspan) [ZWERYFIKOWANO]:
+    - Potwierdzono poprawność `colspan="8"`.
+
+13. Brak tooltipów w module Dostawcy [NAPRAWIONO]:
+    - Dodano atrybuty `title` do przycisków akcji (Podgląd, Edycja, Usuń) w `supplier_table.html`.
+
+14. Problemy z otwieraniem/zamykaniem formularzy zamówień [NAPRAWIONO]:
+    - Ujednolicono system modali, przenosząc zamówienia na globalny `productModal` i target `#modal-content`.
+    - Rozwiązano problem niepojawiających się formularzy edycji i nowego zamówienia (nieprawidłowe targety HTMX).
+    - Powiększono globalny modal (`modal-lg`), aby lepiej mieścił formularze zamówień.
+    - Zsynchronizowano odświeżanie listy zamówień po zmianie statusu produktu (`productChanged`).
+
+15. Błąd walidacji dostawcy przy tworzeniu zamówienia [NAPRAWIONO]:
+    - Poprawiono `OrderForm`, aby podczas POST queryset dostawców nie był pusty, co umożliwia walidację wartości wybranej przez HTMX.
+    - Spolszczono komunikaty błędów walidacji w formularzu zamówienia.
+
+16. Przycisk "Pokaż resztę" nie zmieniał tekstu na "Zwiń" [NAPRAWIONO]:
+    - Dodano klasę CSS `.btn-collapse-toggle` reagującą na atrybut `aria-expanded` Bootstrapa.
+    - Zaktualizowano `product_row.html`, aby tekst przycisku zmieniał się dynamicznie po rozwinięciu listy partii.
+
+17. Niespójność nagłówków stron [NAPRAWIONO]:
+    - Dodano brakujące tytuły i opisy stron w modułach "Dostawcy", "Zamówienia" oraz "Produkty".
+    - Ujednolicono styl nagłówków w całej aplikacji (ikony, pogrubienie, podpisy).
+    - Dodano ikonę `bi-clipboard-check` do nagłówka w module "Zlecenia".
+    - Naprawiono błąd odstępów (marginesów) w widoku zamówień poprzez usunięcie nadmiarowego kontenera.
+    - Ujednolicono targety modali dla modułu "Zlecenia" (korzystanie z globalnego `productModal`).
+
+--- PROPOZYCJE NOWYCH FUNKCJONALNOŚCI I KIERUNKI ROZWOJU ---
+1. Analityka i Raportowanie:
+   - Dashboard z wykresami (np. rotacja zapasów, najczęściej zamawiane produkty).
+   - Raport przewidywanych kosztów zamówień na podstawie stanów minimalnych.
+   - Eksport danych do CSV/Excel (np. stan magazynowy na konkretny dzień).
+
+2. Zaawansowane Zarządzanie Magazynem:
+   - Moduł Inwentaryzacji (zatwierdzanie różnic między stanem systemowym a faktycznym).
+   - [PRIORYTET] Obsługa wielu magazynów (Locations) dla jednego tenanta.
+   - Historia zmian stanów (Audit Log) - przywrócenie logowania operacji (kto, kiedy, co zmienił).
+
+3. Usprawnienia Procesu Zamówień i Komunikacji:
+   - System powiadomień SMS/E-mail (integracja z API typu Twilio/SmsApi dla progów krytycznych).
+   - Elastyczne szablony zamówień (PDF/E-mail) z możliwością wyboru kanału (sklep stacjonarny, telefon, e-commerce).
+   - [INTEGRACJA] Statusy Dostaw: Ręczne wiązanie numerów przesyłek z zamówieniami + integracja z API kurierów (InPost, DPD, DHL) do śledzenia statusu bezpośrednio w aplikacji.
+
+4. Optymalizacja pod Chmurę (Cloud-Ready):
+   - Integracja z Google Cloud Storage / AWS S3 do przechowywania załączników (np. skanów faktur).
+   - Wdrożenie Redis do cache'owania wyników zapytań przy dużym ruchu.
+   - Implementacja Health Checks dla monitoringu infrastruktury.
