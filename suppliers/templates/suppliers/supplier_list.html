@@ -2,25 +2,10 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <div class="search-box w-50">
-        <div class="input-group">
-            <span class="input-group-text bg-white border-end-0">
-                <i class="bi bi-search text-muted"></i>
-            </span>
-            <input type="text"
-                   id="search-q"
-                   name="q"
-                   class="form-control border-start-0"
-                   placeholder="Szukaj po nazwie dostawcy..."
-                   value="{{ q }}"
-                   hx-get="{% url 'supplier_list' %}"
-                   hx-trigger="keyup changed delay:500ms"
-                   hx-target="#supplier-table-container"
-                   hx-push-url="true"
-                   hx-include="[name='sort']">
-        </div>
+    <div>
+        <h2 class="h4 mb-1 fw-bold text-dark"><i class="bi bi-truck me-2"></i>Dostawcy</h2>
+        <p class="text-muted small mb-0">Zarządzaj bazą dostawców i ich cennikami.</p>
     </div>
-
     <button class="btn btn-primary shadow-sm"
             hx-get="{% url 'supplier_create' %}"
             hx-target="#modal-content"
@@ -28,6 +13,29 @@
             data-bs-target="#productModal">
         <i class="bi bi-plus-lg me-2"></i>Dodaj dostawcę
     </button>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <div class="search-box">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="bi bi-search text-muted"></i>
+                </span>
+                <input type="text"
+                       id="search-q"
+                       name="q"
+                       class="form-control border-start-0"
+                       placeholder="Szukaj po nazwie dostawcy..."
+                       value="{{ q }}"
+                       hx-get="{% url 'supplier_list' %}"
+                       hx-trigger="keyup changed delay:500ms"
+                       hx-target="#supplier-table-container"
+                       hx-push-url="true"
+                       hx-include="[name='sort']">
+            </div>
+        </div>
+    </div>
 </div>
 
 <div id="supplier-table-container"

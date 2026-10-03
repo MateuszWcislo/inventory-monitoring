@@ -1,10 +1,24 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div class="search-box d-flex gap-2 flex-grow-1" style="max-width: 600px;">
-            <div class="input-group">
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h4 mb-1 fw-bold text-dark"><i class="bi bi-cart-check me-2"></i>Zamówienia</h2>
+        <p class="text-muted small mb-0">Śledź statusy dostaw i zarządzaj zamówieniami do dostawców.</p>
+    </div>
+    <button class="btn btn-primary shadow-sm"
+            hx-get="{% url 'order_create' %}"
+            hx-target="#modal-content"
+            data-bs-toggle="modal"
+            data-bs-target="#productModal">
+        <i class="bi bi-plus-lg me-2"></i>Nowe zamówienie
+    </button>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <div class="search-box d-flex gap-2">
+            <div class="input-group flex-grow-1">
                 <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
                 <input type="text" name="q" class="form-control border-start-0"
                        placeholder="Szukaj produktu..."
@@ -24,34 +38,11 @@
                 {% endfor %}
             </select>
         </div>
-
-        <button class="btn btn-primary shadow-sm"
-                hx-get="{% url 'order_create' %}"
-                hx-target="#order-modal-content"
-                data-bs-toggle="modal"
-                data-bs-target="#orderModal">
-            <i class="bi bi-plus-lg me-2"></i>Nowe zamówienie
-        </button>
     </div>
+</div>
 
-    <div id="order-table-container" hx-get="{% url 'order_list' %}" hx-trigger="ordersChanged from:body">
+    <div id="order-table-container" hx-get="{% url 'order_list' %}" hx-trigger="ordersChanged from:body, productChanged from:body">
         {% include 'orders/partials/order_table.html' %}
     </div>
 
-</div>
-
-<div class="modal fade" id="orderModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div id="order-modal-content" class="modal-content border-0 shadow">
-        </div>
-    </div>
-</div>
-
-<script>
-    document.body.addEventListener('ordersChanged', function() {
-        const modalElement = document.getElementById('orderModal');
-        const modal = bootstrap.Modal.getInstance(modalElement);
-        if (modal) modal.hide();
-    });
-</script>
 {% endblock %}

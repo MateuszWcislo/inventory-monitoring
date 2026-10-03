@@ -23,7 +23,7 @@ class Product(models.Model):
         return self.batches.aggregate(models.Sum('current_stock'))['current_stock__sum'] or 0
 
     def get_virtual_stock(self):
-        """Stan fizyczny + to, co jest już zamówione/utworzone."""
+        """Stan fizyczny + to, co jest już zamówione/utworzone. Wyklucza anulowane."""
         actual = self.total_stock
         # Zakładamy, że model Order ma pole 'product' (ForeignKey)
         pending = self.orders.filter(
@@ -44,6 +44,12 @@ class Product(models.Model):
 
     def active_batches(self):
         """Zwraca partie z dodatnim stanem, od najstarszych (FIFO)."""
+        # Używamy prefetchowanych batches jeśli są dostępne, żeby uniknąć N+1
+        if hasattr(self, '_prefetched_objects_cache') and 'batches' in self._prefetched_objects_cache:
+            return sorted(
+                [b for b in self.batches.all() if (b.current_stock or 0) > 0],
+                key=lambda x: x.created_at
+            )
         return self.batches.filter(current_stock__gt=0).order_by('created_at')
 
     def __str__(self):

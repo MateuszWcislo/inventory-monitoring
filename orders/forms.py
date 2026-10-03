@@ -13,6 +13,20 @@ class OrderForm(forms.ModelForm):
             'order_type': forms.HiddenInput(),
             'status': forms.Select(attrs={'class': 'form-select'}),
         }
+        error_messages = {
+            'product': {
+                'invalid_choice': 'Wybierz poprawny produkt.',
+                'required': 'To pole jest wymagane.',
+            },
+            'supplier': {
+                'invalid_choice': 'Wybrany dostawca jest nieprawidłowy lub nie przypisany do produktu.',
+                'required': 'To pole jest wymagane.',
+            },
+            'quantity': {
+                'required': 'Podaj ilość.',
+                'min_value': 'Ilość musi być większa od zera.',
+            },
+        }
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
@@ -61,12 +75,21 @@ class OrderForm(forms.ModelForm):
             elif is_product_removed:
                 self.fields['supplier'].queryset = Supplier.objects.none()
             else:
-                # Nowe zamówienie: pusta lista dostawców do momentu wyboru produktu
-                self.fields['supplier'].queryset = Supplier.objects.none()
+                # Nowe zamówienie lub POST:
+                # Jeśli to POST, musimy zezwolić na wszystkich dostawców tenanta,
+                # aby walidacja przepuściła wartość wybraną dynamicznie przez HTMX.
+                # Właściwa walidacja powiązania produktu z dostawcą dzieje się w clean().
+                if args or kwargs.get('data'):
+                    self.fields['supplier'].queryset = Supplier.objects.filter(tenant=tenant)
+                else:
+                    self.fields['supplier'].queryset = Supplier.objects.none()
 
             self.product_vats = {str(p.id): float(p.vat_rate) for p in tenant_products}
+            import json
+            self.product_vats_json = json.dumps(self.product_vats)
         else:
             self.product_vats = {}
+            self.product_vats_json = "{}"
 
         if not is_persisted:
             self.fields['order_type'].initial = 'MANUAL'
@@ -93,7 +116,7 @@ class OrderForm(forms.ModelForm):
         # 3. Walidacja powiązania dostawcy
         if product and supplier:
             if tenant and supplier.tenant != tenant:
-                self.add_error('supplier', 'Nieprawidłowy dostawca.')
+                self.add_error('supplier', 'Nieprawidłowy dostawca (inny tenant).')
 
             is_valid = product.supplier_mappings.filter(supplier=supplier).exists()
             if not is_valid:

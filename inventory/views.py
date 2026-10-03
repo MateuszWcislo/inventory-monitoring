@@ -221,7 +221,12 @@ def quick_update_batch_stock(request, batch_id):
             except (ValueError, TypeError):
                 pass
 
-    return render(request, 'inventory/partials/product_row.html', {'p': batch.product})
+    # Pobieramy produkt z adnotacją, aby suma była dostępna w szablonie
+    product = Product.objects.filter(pk=batch.product.pk).annotate(
+        computed_total_stock=Coalesce(Sum('batches__current_stock'), Value(0))
+    ).prefetch_related('batches').first()
+
+    return render(request, 'inventory/partials/product_row.html', {'p': product})
 
 
 # --- POMOCNICZE ---
@@ -301,7 +306,7 @@ def add_to_order_save(request, pk):
             order_type='MANUAL',
             status='CREATED'
         )
-        return HttpResponse("", headers={'HX-Trigger': 'ordersChanged'})
+        return HttpResponse("", headers={'HX-Trigger': 'productChanged'})
 
 
 def add_supplier_row(request):

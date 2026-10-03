@@ -1,7 +1,10 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="h4 mb-0">Cennik Usług</h2>
+    <div>
+        <h2 class="h4 mb-1 fw-bold text-dark"><i class="bi bi-gear-wide-connected me-2"></i>Cennik Usług</h2>
+        <p class="text-muted small mb-0">Zarządzaj ofertą usług i stawkami roboczogodzin.</p>
+    </div>
     <button class="btn btn-primary" hx-get="{% url 'service_create' %}" hx-target="#service-modal-content" data-bs-toggle="modal" data-bs-target="#serviceModal">
         <i class="bi bi-plus-lg me-2"></i>Dodaj usługę
     </button>

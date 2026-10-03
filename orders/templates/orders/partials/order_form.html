@@ -6,8 +6,8 @@
     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
 </div>
 
-<form hx-post="{% if order.id %}{% url 'order_edit' order.id %}{% else %}{% url 'order_create' %}{% endif %}"
-      hx-target="#order-modal-content">
+<form hx-post="{% if is_edit %}{% url 'order_edit' order.id %}{% else %}{% url 'order_create' %}{% endif %}"
+      hx-target="#modal-content">
     {% csrf_token %}
     {{ form.order_type }}
     <div class="modal-body p-4 bg-light">
@@ -73,7 +73,7 @@
         const grossInput = document.getElementById('id_gross_price');
         const vatSpan = document.getElementById('current-vat');
 
-        const productVats = {{ form.product_vats|safe|default:"{}" }};
+        const productVats = JSON.parse('{{ form.product_vats_json|safe|default:"{}" }}');
         let activeVat = 0;
 
         window.updateVatRate = function() {

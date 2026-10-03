@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.http import HttpResponse
 from decimal import Decimal
-from django.db import transaction
+from django.db import transaction, models
 from django.db.models import Q
 from django.contrib import messages
 

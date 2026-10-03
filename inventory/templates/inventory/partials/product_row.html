@@ -17,17 +17,18 @@
                     {% include 'inventory/partials/batch_badge.html' with batch=batch %}
                 {% endfor %}
 
-                {% if active_batches.count > 2 %}
+                {% if active_batches|length > 2 %}
                     <div class="collapse" id="extra-batches-{{ p.id }}">
                         {% for batch in active_batches|slice:"2:" %}
                             {% include 'inventory/partials/batch_badge.html' with batch=batch %}
                         {% endfor %}
                     </div>
-                    <button class="btn btn-sm btn-link p-0 text-decoration-none small"
+                    <button class="btn btn-sm btn-link p-0 text-decoration-none small btn-collapse-toggle"
                             type="button"
                             data-bs-toggle="collapse"
-                            data-bs-target="#extra-batches-{{ p.id }}">
-                        Pokaż resztę ({{ active_batches.count|add:"-2" }})
+                            data-bs-target="#extra-batches-{{ p.id }}"
+                            aria-expanded="false">
+                        <span class="text-show">Pokaż resztę ({{ active_batches|length|add:"-2" }})</span>
                     </button>
                 {% endif %}
 
@@ -39,8 +40,8 @@
     </td>
 
     <td class="text-center">
-        <span class="fs-5 fw-bold {% if p.total_stock < p.min_threshold %}text-danger{% endif %}">
-            {{ p.total_stock }}
+        <span class="fs-5 fw-bold {% if p.computed_total_stock < p.min_threshold %}text-danger{% endif %}">
+            {{ p.computed_total_stock }}
         </span>
         <div class="text-muted small">min: {{ p.min_threshold }}, cel: {{ p.target_stock }}</div>
     </td>
@@ -48,7 +49,7 @@
     <td class="text-center">{{ p.vat_rate }}</td>
 
     <td class="text-center">
-        {% if p.total_stock < p.min_threshold %}
+        {% if p.computed_total_stock < p.min_threshold %}
             <span class="badge rounded-pill bg-danger">
                 <i class="bi bi-exclamation-triangle"></i> Zamów!
             </span>

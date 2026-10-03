@@ -10,6 +10,6 @@
     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Anuluj</button>
     <button type="button" class="btn btn-danger"
             hx-post="{% url 'order_delete' order.id %}"
-            hx-target="#order-modal-content"
+            hx-target="#modal-content"
             data-bs-dismiss="modal">Usuń trwale</button>
 </div>

@@ -29,8 +29,14 @@ def process_auto_order_logic(product):
         ).first()
 
         if existing_draft:
-            existing_draft.quantity += needed_quantity
-            existing_draft.save()
+            # Nie dodajemy do istniejącego szkicu, jeśli virtual_stock już go uwzględnia.
+            # get_virtual_stock() uwzględnia status='CREATED', więc jeśli nadal jesteśmy poniżej progu,
+            # to znaczy, że trzeba zwiększyć zamówienie o różnicę.
+            if existing_draft.quantity < needed_quantity + existing_draft.quantity: # to jest zawsze prawda jeśli needed > 0
+                 # Ale chwila: needed_quantity = target - virtual_stock.
+                 # Jeśli virtual_stock zawiera już existing_draft.quantity, to needed_quantity jest tym, co brakuje PONAD to zamówienie.
+                 existing_draft.quantity += needed_quantity
+                 existing_draft.save()
             return
 
         # 2. Logika ustalania ceny i dostawcy na podstawie historii lub powiązań produktu

@@ -12,6 +12,11 @@
         .navbar-brand { font-weight: bold; color: #0d6efd !important; }
         .modal-content { border: none; border-radius: 12px; }
         .tenant-badge { font-size: 0.75rem; vertical-align: middle; }
+        
+        /* Obsługa przycisku Pokaż resztę / Zwiń w tabeli produktów */
+        .btn-collapse-toggle[aria-expanded="true"] .text-show { display: none; }
+        .btn-collapse-toggle[aria-expanded="false"] .text-hide { display: none; }
+        .btn-collapse-toggle[aria-expanded="true"]::after { content: "Zwiń"; }
         @media (max-width: 991.98px) {
             .navbar-nav { margin-bottom: 1rem; }
             .user-info-section { border-top: 1px solid #495057; padding-top: 1rem; }
@@ -79,7 +84,7 @@
     </div>
 
     <div class="modal fade" id="productModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
             <div id="modal-content" class="modal-content shadow">
                 <div class="modal-body text-center py-5">
                     <div class="spinner-border text-primary" role="status">

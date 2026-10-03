@@ -42,7 +42,7 @@ class WorkOrder(models.Model):
 
 class WorkOrderProduct(models.Model):
     order = models.ForeignKey(WorkOrder, related_name='items', on_delete=models.CASCADE)
-    product_batch = models.ForeignKey('inventory.ProductBatch', on_delete=models.SET_NULL, null=True)
+    product_batch = models.ForeignKey('inventory.ProductBatch', on_delete=models.PROTECT, null=True)
 
     # SNAPSHOTY danych:
     name_snapshot = models.CharField(max_length=255)  # Nazwa produktu w momencie zakupu
