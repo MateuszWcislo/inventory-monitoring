@@ -82,12 +82,25 @@ LISTA ZNALEZIONYCH BŁĘDÓW - ANALIZA JUNIE (Status po poprawkach)
 2. Zaawansowane Zarządzanie Magazynem:
    - Moduł Inwentaryzacji (zatwierdzanie różnic między stanem systemowym a faktycznym).
    - [PRIORYTET] Obsługa wielu magazynów (Locations) dla jednego tenanta.
-   - Historia zmian stanów (Audit Log) - przywrócenie logowania operacji (kto, kiedy, co zmienił).
+   - Historia zmian stanów (Audit Log) [ZREALIZOWANO]:
+      - Dodano model `ActivityLog` rejestrujący zdarzenia (kto, co, kiedy, stara vs nowa wartość).
+      - Wdrożono sygnały śledzące utworzenie produktu oraz zmiany w partiach towaru.
+      - Dodano zakładkę "Historia" z filtrowaniem aktywności.
+      - [NAPRAWIONO] Zmieniono wyświetlanie ID partii na czytelniejszy format "netto / brutto zł".
+   - Moduł Importu [W TRAKCIE]:
+      - Utworzono nową aplikację `data_import` oraz model `ImportJob` do śledzenia statusu zadań.
+      - Dodano centralną zakładkę "Import" do nawigacji głównej.
+      - Przygotowano dashboard do zarządzania masowymi operacjami (funkcja Premium).
+      - [ZREALIZOWANO] Utworzono szablony CSV i Excel (.xlsx) do pobrania dla produktów.
+      - [NAPRAWIONO] Poprawiono literówkę w nagłówku szablonu ("Próg alarmowy").
+      - [NAPRAWIONO] Naprawiono błąd, w którym szablon Excel pobierał się jako CSV w przypadku braku bibliotek (teraz wysyła kompatybilny format .xls oparty na HTML, co gwarantuje poprawny podział komórek).
+      - [DO ZROBIENIA] Implementacja logiki parsowania CSV/Excel.
 
 3. Usprawnienia Procesu Zamówień i Komunikacji:
    - System powiadomień SMS/E-mail (integracja z API typu Twilio/SmsApi dla progów krytycznych).
    - Elastyczne szablony zamówień (PDF/E-mail) z możliwością wyboru kanału (sklep stacjonarny, telefon, e-commerce).
    - [INTEGRACJA] Statusy Dostaw: Ręczne wiązanie numerów przesyłek z zamówieniami + integracja z API kurierów (InPost, DPD, DHL) do śledzenia statusu bezpośrednio w aplikacji.
+   - Generowanie faktur z poziomu zleceń (Work Orders).
 
 4. Optymalizacja pod Chmurę (Cloud-Ready):
    - Integracja z Google Cloud Storage / AWS S3 do przechowywania załączników (np. skanów faktur).

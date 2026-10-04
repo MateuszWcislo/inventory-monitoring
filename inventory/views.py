@@ -6,7 +6,24 @@ from django.db.models import Q, Sum, F, Value
 from django.db.models.functions import Coalesce
 from decimal import Decimal
 
-from .models import Product, ProductBatch, ProductSupplier
+from .models import Product, ProductBatch, ProductSupplier, ActivityLog
+
+@login_required
+def activity_log_list(request):
+    """Widok globalnej historii aktywności."""
+    logs = ActivityLog.objects.filter(tenant=request.user.tenant).select_related('product', 'product_batch', 'user')
+    
+    # Proste filtrowanie po produkcie
+    product_id = request.GET.get('product')
+    if product_id:
+        logs = logs.filter(product_id=product_id)
+
+    context = {
+        'logs': logs,
+        'products': Product.objects.filter(tenant=request.user.tenant).order_by('name'),
+    }
+    return render(request, 'inventory/activity_logs.html', context)
+
 from .forms import ProductForm, SupplierFormSet, BatchFormSet
 from orders.models import Order
 from suppliers.models import Supplier

@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h4 mb-1 fw-bold text-dark"><i class="bi bi-file-earmark-arrow-up me-2"></i>Centrum Importu</h2>
+        <p class="text-muted small mb-0">Masowe wczytywanie danych z plików CSV i Excel.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Opcje importu -->
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body text-center p-4">
+                <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                    <i class="bi bi-box-seam fs-3"></i>
+                </div>
+                <h5 class="card-title fw-bold">Produkty</h5>
+                <p class="card-text text-muted small">Importuj listę asortymentu wraz ze stanami minimalnymi.</p>
+                <a href="{% url 'import_products' %}" class="btn btn-outline-primary w-100">Rozpocznij import</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm opacity-75">
+            <div class="card-body text-center p-4">
+                <div class="bg-secondary bg-opacity-10 text-secondary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                    <i class="bi bi-truck fs-3"></i>
+                </div>
+                <h5 class="card-title fw-bold">Dostawcy</h5>
+                <p class="card-text text-muted small">Importuj dane kontaktowe i adresowe swoich dostawców.</p>
+                <button class="btn btn-outline-secondary w-100" disabled>Wkrótce</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm opacity-75">
+            <div class="card-body text-center p-4">
+                <div class="bg-secondary bg-opacity-10 text-secondary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                    <i class="bi bi-currency-dollar fs-3"></i>
+                </div>
+                <h5 class="card-title fw-bold">Cenniki</h5>
+                <p class="card-text text-muted small">Powiąż produkty z dostawcami i zaktualizuj ceny zakupu.</p>
+                <button class="btn btn-outline-secondary w-100" disabled>Wkrótce</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Historia importów -->
+<div class="mt-5">
+    <h5 class="fw-bold mb-3">Ostatnie zadania importu</h5>
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Data</th>
+                            <th>Typ</th>
+                            <th>Plik</th>
+                            <th>Status</th>
+                            <th>Postęp</th>
+                            <th class="pe-4">Akcja</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for job in jobs %}
+                        <tr>
+                            <td class="ps-4 text-muted small">{{ job.created_at|date:"d.m.Y H:i" }}</td>
+                            <td>{{ job.get_file_type_display }}</td>
+                            <td>{{ job.file_name }}</td>
+                            <td>
+                                <span class="badge {% if job.status == 'COMPLETED' %}bg-success{% elif job.status == 'FAILED' %}bg-danger{% else %}bg-info{% endif %}">
+                                    {{ job.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {{ job.records_imported }}/{{ job.records_total }}
+                            </td>
+                            <td class="pe-4">
+                                <button class="btn btn-sm btn-light"><i class="bi bi-info-circle"></i></button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">Brak zarejestrowanych importów.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

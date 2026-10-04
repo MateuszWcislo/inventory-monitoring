@@ -103,3 +103,24 @@ class ProductSupplier(models.Model):
 
     class Meta:
         unique_together = ('tenant', 'product', 'supplier')
+
+
+class ActivityLog(models.Model):
+    """Śledzenie zmian w stanach magazynowych i innych istotnych zdarzeń."""
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.CASCADE, related_name='activity_logs')
+    user = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='activity_logs', null=True, blank=True)
+    product_batch = models.ForeignKey(ProductBatch, on_delete=models.SET_NULL, null=True, blank=True, related_name='activity_logs')
+    
+    action = models.CharField(max_length=50)  # np. STOCK_UPDATE, BATCH_CREATED, MANUAL_ADJUSTMENT
+    description = models.TextField()
+    
+    old_value = models.CharField(max_length=255, null=True, blank=True)
+    new_value = models.CharField(max_length=255, null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Log aktywności"
+        verbose_name_plural = "Logi aktywności"

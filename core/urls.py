@@ -41,4 +41,6 @@ urlpatterns = [
     path('work_orders/', include('work_orders.urls')),
     # # Users
     path('users/', include('users.urls')),
+    # Import
+    path('import/', include('data_import.urls')),
 ]

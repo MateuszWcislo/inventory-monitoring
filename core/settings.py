@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'work_orders',
     'tenants',
     'users',
+    'data_import',
 ]
 
 MIDDLEWARE = [

@@ -5,6 +5,7 @@ urlpatterns = [
     # --- LISTA I GŁÓWNE ---
     path('', views.product_list, name="product_list"),
     path('home/', views.home_redirect, name="home_redirect"),
+    path('logs/', views.activity_log_list, name='activity_log_list'),
 
     # --- CRUD PRODUKTU ---
     path('create/', views.product_create, name='product_create'),

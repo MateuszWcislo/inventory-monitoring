@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'import_dashboard' %}">Import</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Produkty</li>
+        </ol>
+    </nav>
+    <h2 class="h4 mb-1 fw-bold text-dark"><i class="bi bi-box-seam me-2"></i>Import Produktów</h2>
+    <p class="text-muted small">Wybierz plik CSV lub Excel, aby dodać lub zaktualizować produkty.</p>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label for="file" class="form-label fw-bold">Wybierz plik</label>
+                        <input type="file" class="form-control" id="file" name="file" accept=".csv, .xlsx, .xls" required>
+                        <div class="form-text mt-2">
+                            Obsługiwane formaty: <strong>.csv, .xlsx, .xls</strong>. Maksymalny rozmiar: 5MB.
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info border-0 bg-light">
+                        <h6 class="fw-bold"><i class="bi bi-info-circle me-2"></i>Wskazówki do importu:</h6>
+                        <ul class="small mb-0">
+                            <li>Pierwszy wiersz powinien zawierać nagłówki (np. Nazwa, SKU, Cena, Stan minimalny).</li>
+                            <li>Jeśli produkt o danym SKU istnieje, jego dane zostaną zaktualizowane.</li>
+                            <li>Pola "Nazwa" oraz "SKU" są wymagane.</li>
+                        </ul>
+                    </div>
+
+                    <div class="d-flex gap-2 justify-content-end mt-4">
+                        <a href="{% url 'import_dashboard' %}" class="btn btn-light">Anuluj</a>
+                        <button type="submit" class="btn btn-primary px-4" disabled>
+                            <i class="bi bi-upload me-2"></i>Rozpocznij wczytywanie
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm bg-light">
+            <div class="card-body p-4">
+                <h6 class="fw-bold mb-3">Pobierz szablony</h6>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'download_product_template_csv' %}" class="btn btn-sm btn-outline-secondary text-start">
+                        <i class="bi bi-filetype-csv me-2"></i>Szablon CSV
+                    </a>
+                    <a href="{% url 'download_product_template_excel' %}" class="btn btn-sm btn-outline-secondary text-start">
+                        <i class="bi bi-filetype-xlsx me-2"></i>Szablon Excel
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
