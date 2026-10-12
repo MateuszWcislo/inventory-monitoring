@@ -77,7 +77,8 @@ class ProductBatch(models.Model):
 
     def save(self, *args, **kwargs):
         # Logika przeliczania cen w obie strony
-        vat_mult = 1 + (self.product.vat_rate / Decimal('100'))
+        vat_rate_dec = Decimal(str(self.product.vat_rate)) if self.product and self.product.vat_rate is not None else Decimal('23.00')
+        vat_mult = 1 + (vat_rate_dec / Decimal('100'))
 
         # Podajemy tylko netto, to oblicz brutto
         if self.net_price and not self.gross_price:

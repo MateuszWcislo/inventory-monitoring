@@ -8,37 +8,55 @@
             <li class="breadcrumb-item active" aria-current="page">Produkty</li>
         </ol>
     </nav>
-    <h2 class="h4 mb-1 fw-bold text-dark"><i class="bi bi-box-seam me-2"></i>Import Produktów</h2>
-    <p class="text-muted small">Wybierz plik CSV lub Excel, aby dodać lub zaktualizować produkty.</p>
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="h4 mb-1 fw-bold text-dark"><i class="bi bi-box-seam me-2"></i>Import Produktów</h2>
+            <p class="text-muted small mb-0">Wczytuj, aktualizuj i twórz produkty masowo z plików CSV i Excel.</p>
+        </div>
+    </div>
 </div>
 
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+{% if step == 'upload' %}
 <div class="row">
     <div class="col-md-8">
         <div class="card border-0 shadow-sm">
             <div class="card-body p-4">
                 <form method="post" enctype="multipart/form-data">
                     {% csrf_token %}
+                    <input type="hidden" name="action" value="analyze">
+                    
                     <div class="mb-4">
-                        <label for="file" class="form-label fw-bold">Wybierz plik</label>
+                        <label for="file" class="form-label fw-bold">Wybierz plik do importu</label>
                         <input type="file" class="form-control" id="file" name="file" accept=".csv, .xlsx, .xls" required>
                         <div class="form-text mt-2">
-                            Obsługiwane formaty: <strong>.csv, .xlsx, .xls</strong>. Maksymalny rozmiar: 5MB.
+                            Obsługiwane formaty: <strong>.csv, .xlsx, .xls</strong>.
                         </div>
                     </div>
                     
                     <div class="alert alert-info border-0 bg-light">
-                        <h6 class="fw-bold"><i class="bi bi-info-circle me-2"></i>Wskazówki do importu:</h6>
+                        <h6 class="fw-bold"><i class="bi bi-info-circle me-2"></i>Zasady działania importu:</h6>
                         <ul class="small mb-0">
-                            <li>Pierwszy wiersz powinien zawierać nagłówki (np. Nazwa, SKU, Cena, Stan minimalny).</li>
-                            <li>Jeśli produkt o danym SKU istnieje, jego dane zostaną zaktualizowane.</li>
-                            <li>Pola "Nazwa" oraz "SKU" są wymagane.</li>
+                            <li>Pierwszy wiersz powinien zawierać nagłówki kolumn.</li>
+                            <li><strong>Nazwa produktu</strong> jest polem wymaganym.</li>
+                            <li>Jeśli produkt o danej nazwie istnieje już w systemie, jego parametry zostaną zaktualizowane.</li>
+                            <li>Jeśli wskazany dostawca nie istnieje w systemie, produkt zostanie utworzony bez powiązania (otrzymasz ostrzeżenie).</li>
+                            <li>Przed zapisem zobaczysz podgląd wczytanych danych i ewentualne ostrzeżenia o duplikatach.</li>
                         </ul>
                     </div>
 
                     <div class="d-flex gap-2 justify-content-end mt-4">
                         <a href="{% url 'import_dashboard' %}" class="btn btn-light">Anuluj</a>
-                        <button type="submit" class="btn btn-primary px-4" disabled>
-                            <i class="bi bi-upload me-2"></i>Rozpocznij wczytywanie
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="bi bi-search me-2"></i>Wczytaj i przeanalizuj
                         </button>
                     </div>
                 </form>
@@ -49,17 +67,258 @@
     <div class="col-md-4">
         <div class="card border-0 shadow-sm bg-light">
             <div class="card-body p-4">
-                <h6 class="fw-bold mb-3">Pobierz szablony</h6>
+                <h6 class="fw-bold mb-3"><i class="bi bi-download me-2"></i>Pobierz szablony</h6>
+                <p class="small text-muted mb-3">Pobierz gotowy wzór pliku z prawidłowymi kolumnami:</p>
                 <div class="d-grid gap-2">
                     <a href="{% url 'download_product_template_csv' %}" class="btn btn-sm btn-outline-secondary text-start">
-                        <i class="bi bi-filetype-csv me-2"></i>Szablon CSV
+                        <i class="bi bi-filetype-csv me-2"></i>Szablon CSV (.csv)
                     </a>
                     <a href="{% url 'download_product_template_excel' %}" class="btn btn-sm btn-outline-secondary text-start">
-                        <i class="bi bi-filetype-xlsx me-2"></i>Szablon Excel
+                        <i class="bi bi-filetype-xlsx me-2"></i>Szablon Excel (.xlsx)
                     </a>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+{% elif step == 'preview' %}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h5 class="fw-bold mb-1">Podgląd i weryfikacja danych ({{ file_name }})</h5>
+                <span class="text-muted small">
+                    Wykryto <strong>{{ analysis.total_count }}</strong> wierszy: 
+                    <span class="text-success fw-bold">{{ analysis.total_valid }} poprawnych</span>, 
+                    <span class="text-danger fw-bold">{{ analysis.total_errors }} z błędami</span>.
+                </span>
+            </div>
+            <div>
+                <a href="{% url 'import_products' %}" class="btn btn-outline-secondary btn-sm me-2">Wybierz inny plik</a>
+            </div>
+        </div>
+
+        {% if analysis.has_file_duplicates %}
+            <div class="alert alert-warning border-0 d-flex align-items-start">
+                <i class="bi bi-exclamation-triangle-fill fs-5 me-3 text-warning"></i>
+                <div>
+                    <h6 class="fw-bold mb-1">Uwaga: Wykryto powtórzenia wewnątrz pliku!</h6>
+                    <p class="small mb-1">
+                        Następujące nazwy produktów występują w pliku wielokrotnie:
+                        <strong>{{ analysis.file_duplicates_names|join:", " }}</strong>.
+                    </p>
+                    <p class="small mb-0 text-muted">
+                        Jeśli zdecydujesz się kontynuować, kolejne wystąpienia w pliku nadpiszą wcześniejsze wartości.
+                    </p>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if analysis.total_errors > 0 %}
+            <div class="alert alert-danger border-0 d-flex align-items-start">
+                <i class="bi bi-x-circle-fill fs-5 me-3 text-danger"></i>
+                <div>
+                    <h6 class="fw-bold mb-1">Wykryto błędy w niektórych wierszach</h6>
+                    <p class="small mb-0">
+                        Wiersze oznaczone kolorem czerwonym posiadają błędy i zostaną pominięte podczas zapisu.
+                    </p>
+                </div>
+            </div>
+        {% endif %}
+
+        <form method="post" id="importConfirmForm" class="mt-4">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="confirm">
+            <input type="hidden" name="file_name" value="{{ file_name }}">
+            <input type="hidden" name="serialized_rows_json" value="{{ serialized_rows_json }}">
+
+            <div class="table-responsive my-3 border rounded" style="max-height: 450px; overflow-y: auto;">
+                <table class="table table-hover align-middle mb-0 small">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th style="width: 40px;" class="text-center">
+                                <input class="form-check-input" type="checkbox" id="selectAllCheckbox" checked title="Zaznacz/odznacz wszystkie">
+                            </th>
+                            <th style="width: 45px;">#</th>
+                            <th>Nazwa produktu</th>
+                            <th>Opis</th>
+                            <th class="text-center">VAT</th>
+                            <th class="text-center">Cena netto / brutto</th>
+                            <th class="text-center">Stan partii</th>
+                            <th class="text-center">Próg / Docelowy</th>
+                            <th>Dostawca / SKU</th>
+                            <th>Status / Uwagi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in analysis.rows %}
+                            <tr class="{% if not row.is_valid %}table-danger{% elif row.exists_in_db %}table-warning-subtle{% endif %}">
+                                <td class="text-center">
+                                    {% if row.is_valid %}
+                                        <input class="form-check-input row-select-checkbox" type="checkbox" name="selected_rows" value="{{ row.row_num }}" checked>
+                                    {% else %}
+                                        <input class="form-check-input" type="checkbox" disabled title="Nie można zaimportować wiersza z błędem">
+                                    {% endif %}
+                                </td>
+                                <td class="text-muted fw-bold">{{ row.row_num }}</td>
+                                <td>
+                                    <strong class="text-dark">{{ row.data.name|default:"(brak nazwy)" }}</strong>
+                                </td>
+                                <td>
+                                    <span class="text-truncate d-inline-block" style="max-width: 150px;">{{ row.data.description|default:"-" }}</span>
+                                </td>
+                                <td class="text-center">{{ row.parsed.vat_rate }}%</td>
+                                <td class="text-center text-nowrap">
+                                    {% if row.parsed.net_price or row.parsed.gross_price %}
+                                        <span class="fw-semibold text-primary">{{ row.parsed.net_price|default:"0.00" }}</span> / <span class="fw-semibold text-success">{{ row.parsed.gross_price|default:"0.00" }} zł</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-secondary-subtle text-secondary border">{{ row.parsed.current_stock|default:"0" }} szt.</span>
+                                </td>
+                                <td class="text-center text-nowrap">
+                                    {{ row.parsed.min_threshold }} / {{ row.parsed.target_stock|default:row.parsed.min_threshold }}
+                                </td>
+                                <td>
+                                    {% if row.data.supplier_name %}
+                                        <span class="badge bg-light text-dark border">{{ row.data.supplier_name }}</span>
+                                        {% if row.data.supplier_sku %}
+                                            <br><small class="text-muted">SKU: {{ row.data.supplier_sku }}</small>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if not row.is_valid %}
+                                        {% for err in row.errors %}
+                                            <div class="text-danger fw-bold"><i class="bi bi-x-circle me-1"></i>{{ err }}</div>
+                                        {% endfor %}
+                                    {% else %}
+                                        {% if row.exists_in_db %}
+                                            <span class="badge bg-info text-dark mb-1"><i class="bi bi-arrow-repeat me-1"></i>Aktualizacja</span>
+                                        {% else %}
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle mb-1"><i class="bi bi-plus-circle me-1"></i>Nowy</span>
+                                        {% endif %}
+                                        {% for warn in row.warnings %}
+                                            <div class="text-warning-emphasis small"><i class="bi bi-info-circle me-1"></i>{{ warn }}</div>
+                                        {% endfor %}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <a href="{% url 'import_products' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Anuluj i cofnij
+                </a>
+                
+                <button type="submit" id="submitImportBtn" class="btn btn-success px-4" {% if analysis.total_valid == 0 %}disabled{% endif %}>
+                    <i class="bi bi-check-circle me-2"></i>
+                    <span id="submitBtnText">
+                        {% if analysis.has_file_duplicates %}
+                            Kontynuuj i zaimportuj wybrane (<span id="selectedCount">{{ analysis.total_valid }}</span>)
+                        {% else %}
+                            Zatwierdź i zaimportuj wybrane (<span id="selectedCount">{{ analysis.total_valid }}</span>)
+                        {% endif %}
+                    </span>
+                </button>
+            </div>
+        </form>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const selectAll = document.getElementById('selectAllCheckbox');
+                const rowCheckboxes = document.querySelectorAll('.row-select-checkbox');
+                const selectedCountSpan = document.getElementById('selectedCount');
+                const submitBtn = document.getElementById('submitImportBtn');
+
+                function updateCount() {
+                    const checkedCount = document.querySelectorAll('.row-select-checkbox:checked').length;
+                    if (selectedCountSpan) {
+                        selectedCountSpan.textContent = checkedCount;
+                    }
+                    if (submitBtn) {
+                        submitBtn.disabled = (checkedCount === 0);
+                    }
+                    if (selectAll) {
+                        selectAll.checked = (rowCheckboxes.length > 0 && checkedCount === rowCheckboxes.length);
+                        selectAll.indeterminate = (checkedCount > 0 && checkedCount < rowCheckboxes.length);
+                    }
+                }
+
+                if (selectAll) {
+                    selectAll.addEventListener('change', function() {
+                        rowCheckboxes.forEach(cb => {
+                            cb.checked = selectAll.checked;
+                        });
+                        updateCount();
+                    });
+                }
+
+                rowCheckboxes.forEach(cb => {
+                    cb.addEventListener('change', updateCount);
+                });
+
+                updateCount();
+            });
+        </script>
+    </div>
+</div>
+
+{% elif step == 'result' %}
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-4 text-center">
+        <div class="mb-3 text-success">
+            <i class="bi bi-check-circle-fill" style="font-size: 3.5rem;"></i>
+        </div>
+        <h4 class="fw-bold mb-2">Import produktów został pomyślnie przetworzony!</h4>
+        <p class="text-muted mb-4">Wyniki operacji masowego importu dla pliku <strong>{{ job.file_name }}</strong>:</p>
+
+        <div class="row justify-content-center mb-4">
+            <div class="col-md-3">
+                <div class="p-3 border rounded bg-light">
+                    <div class="text-muted small">Utworzono nowych</div>
+                    <div class="fs-3 fw-bold text-success">{{ result.imported_count }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="p-3 border rounded bg-light">
+                    <div class="text-muted small">Zaktualizowano</div>
+                    <div class="fs-3 fw-bold text-primary">{{ result.updated_count }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="p-3 border rounded bg-light">
+                    <div class="text-muted small">Pominięto (błędy)</div>
+                    <div class="fs-3 fw-bold text-danger">{{ result.failed_count }}</div>
+                </div>
+            </div>
+        </div>
+
+        {% if result.logs %}
+            <div class="text-start mt-4">
+                <h6 class="fw-bold mb-2">Szczegółowy dziennik operacji:</h6>
+                <div class="bg-light p-3 border rounded font-monospace small" style="max-height: 250px; overflow-y: auto; white-space: pre-wrap;">{{ job.error_log }}</div>
+            </div>
+        {% endif %}
+
+        <div class="d-flex justify-content-center gap-3 mt-4">
+            <a href="{% url 'import_products' %}" class="btn btn-outline-primary">
+                <i class="bi bi-upload me-2"></i>Zaimportuj kolejny plik
+            </a>
+            <a href="{% url 'product_list' %}" class="btn btn-primary">
+                <i class="bi bi-box-seam me-2"></i>Przejdź do listy produktów
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}

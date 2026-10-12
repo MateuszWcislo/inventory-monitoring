@@ -4,7 +4,14 @@ LISTA ZNALEZIONYCH BŁĘDÓW - ANALIZA JUNIE (Status po poprawkach)
 * Obecny etap: Budowa lokalnej aplikacji MVP, analiza wymagań i funkcjonalności.
 * Środowisko docelowe: Produkcja w chmurze (GCP lub AWS).
 * Architektura docelowa: Multi-tenancy, chmurowa baza SQL.
+* Środowisko uruchomieniowe (VENV): Wszystkie polecenia i testy uruchamiać zawsze w VENV:
+  `.\venv\Scripts\python.exe manage.py test`
 * Cel Junie: Wsparcie w czyszczeniu logiki lokalnej i przygotowanie pod skalowalną architekturę chmurową.
+
+--- AKTUALNIE DO ZROBIENIA (KOLEJNA SESJA) ---
+1. Moduł Importu - Szczegóły zadań importu (ikona info [i]):
+   - Podpiąć akcję pod przycisk informacji w tabeli "Ostatnie zadania importu" w `data_import/templates/data_import/dashboard.html`.
+   - Zaimplementować widok/modal ze szczegółowym podglądem zadania `ImportJob` (status, czas, użytkownik, statystyki rekordów, pełna treść `error_log` z ostrzeżeniami i błędami).
 
 --- MODUŁ AUTOMATYZACJI I ZAMÓWIEŃ (ORDERS) ---
 1. Pętla nieskończona w automatyzacji zamówień [NAPRAWIONO]:
@@ -87,14 +94,28 @@ LISTA ZNALEZIONYCH BŁĘDÓW - ANALIZA JUNIE (Status po poprawkach)
       - Wdrożono sygnały śledzące utworzenie produktu oraz zmiany w partiach towaru.
       - Dodano zakładkę "Historia" z filtrowaniem aktywności.
       - [NAPRAWIONO] Zmieniono wyświetlanie ID partii na czytelniejszy format "netto / brutto zł".
-   - Moduł Importu [W TRAKCIE]:
+   - Moduł Importu [ZREALIZOWANO POC / IMPORT PRODUKTÓW]:
       - Utworzono nową aplikację `data_import` oraz model `ImportJob` do śledzenia statusu zadań.
       - Dodano centralną zakładkę "Import" do nawigacji głównej.
       - Przygotowano dashboard do zarządzania masowymi operacjami (funkcja Premium).
       - [ZREALIZOWANO] Utworzono szablony CSV i Excel (.xlsx) do pobrania dla produktów.
       - [NAPRAWIONO] Poprawiono literówkę w nagłówku szablonu ("Próg alarmowy").
-      - [NAPRAWIONO] Naprawiono błąd, w którym szablon Excel pobierał się jako CSV w przypadku braku bibliotek (teraz wysyła kompatybilny format .xls oparty na HTML, co gwarantuje poprawny podział komórek).
-      - [DO ZROBIENIA] Implementacja logiki parsowania CSV/Excel.
+      - [NAPRAWIONO] Poprawiono generowanie plików Excel w openpyxl oraz kompatybilny format awaryjny HTML (.xls).
+      - [ZREALIZOWANO] Pełna logika backendowa i interfejs importu produktów:
+         * Obsługa plików CSV (.csv) oraz Excel (.xlsx, .xls) z wykrywaniem kodowania i separatorów.
+         * Krok podglądu (preview) przed finalnym zapisem do bazy.
+         * Wykrywanie duplikatów w pliku oraz w bazie danych z ostrzeżeniem dla użytkownika i możliwością kontynuacji.
+         * Bezpieczna obsługa brakujących dostawców (produkt jest tworzony, relacja pomijana z wpisem w logach).
+         * [ZREALIZOWANO] Możliwość selektywnego wyboru / odrzucenia części produktów (checkboxy przy każdym rekordzie + zaznacz/odznacz wszystko + dynamiczny licznik).
+         * [ZREALIZOWANO] Obsługa cen netto/brutto i stanów partii:
+            - Szablony CSV/Excel zawierają kolumny: Cena netto, Cena brutto, Stan partii.
+            - Walidacja i automatyczne przeliczanie brakującej ceny netto/brutto w oparciu o stawkę VAT.
+            - Klucz unikalności partii: nazwa + cena netto + cena brutto.
+            - Automatyczne tworzenie/aktualizowanie obiektów `ProductBatch`.
+         * Rejestracja wyników i historii w `ImportJob`.
+      - [PLANY NA PRZYSZŁOŚĆ]:
+         * Dedykowany import dostawców (masowe dodawanie kontrahentów z pliku CSV/Excel).
+         * Dedykowany import cenników / powiązań produkt-dostawca (aktualizacja cen zakupu i kodów SKU u dostawców).
 
 3. Usprawnienia Procesu Zamówień i Komunikacji:
    - System powiadomień SMS/E-mail (integracja z API typu Twilio/SmsApi dla progów krytycznych).

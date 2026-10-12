@@ -47,7 +47,8 @@ class Order(models.Model):
 
         # 1. Przeliczanie Brutto/Netto (zawsze gdy brakuje jednego z nich)
         if self.product:
-            vat_rate = getattr(self.product, 'vat_rate', Decimal('23.00'))
+            raw_vat = getattr(self.product, 'vat_rate', Decimal('23.00'))
+            vat_rate = Decimal(str(raw_vat)) if raw_vat is not None else Decimal('23.00')
             vat_factor = 1 + (vat_rate / Decimal('100'))
 
             if self.net_price and not self.gross_price:
