@@ -38,8 +38,7 @@ class OrderForm(forms.ModelForm):
             'id': 'id_product',
             'hx-get': reverse('get_filtered_suppliers'),
             'hx-target': '#id_supplier',
-            'hx-trigger': 'change',
-            'onchange': 'if(typeof updateVatRate === "function") { updateVatRate(); }'
+            'hx-trigger': 'change'
         })
 
         # 2. Stylizacja pola Dostawcy

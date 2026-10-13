@@ -66,22 +66,30 @@
     </div>
 </form>
 
-<script>
+<script id="order-form-script">
     (function() {
         const productSelect = document.getElementById('id_product');
         const netInput = document.getElementById('id_net_price');
         const grossInput = document.getElementById('id_gross_price');
         const vatSpan = document.getElementById('current-vat');
 
-        const productVats = JSON.parse('{{ form.product_vats_json|safe|default:"{}" }}');
+        let productVats = {};
+        try {
+            productVats = JSON.parse('{{ form.product_vats_json|escapejs|default:"{}" }}');
+        } catch (e) {
+            console.error("Błąd parsowania stawek VAT:", e);
+        }
+
         let activeVat = 0;
 
-        window.updateVatRate = function() {
+        function updateVatRate() {
             if (!productSelect) return;
             const productId = productSelect.value;
             activeVat = parseFloat(productVats[productId]) || 0;
-            if (vatSpan) vatSpan.innerText = activeVat;
-        };
+            if (vatSpan) {
+                vatSpan.innerText = activeVat;
+            }
+        }
 
         function recalculateFromNet() {
             if (!netInput || !grossInput) return;
@@ -106,17 +114,12 @@
 
         if (productSelect) {
             productSelect.addEventListener('change', function() {
-                window.updateVatRate();
+                updateVatRate();
                 recalculateFromNet();
             });
         }
 
-        window.updateVatRate();
-
-        document.body.addEventListener('htmx:afterOnLoad', function(evt) {
-            if (evt.detail.target && evt.detail.target.id === 'id_product') {
-                window.updateVatRate();
-            }
-        });
+        // Inicjalizacja przy załadowaniu modala
+        updateVatRate();
     })();
 </script>

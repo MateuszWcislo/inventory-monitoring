@@ -70,7 +70,7 @@ def product_list(request):
     if direction == 'desc':
         order_field = f"-{order_field}"
 
-    products = products.order_by(order_field).distinct()
+    products = products.order_by('-is_favourite', order_field).distinct()
 
     # 5. PRZYGOTOWANIE KONTEKSTU (zachowanie filtrów dla linków sortowania)
     qd = request.GET.copy()

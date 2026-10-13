@@ -13,8 +13,6 @@
 [MODUŁ AUTOMATYZACJI I ZAMÓWIEŃ (ORDERS)]
 * Błędna kalkulacja ilości w `process_auto_order_logic` [CZĘŚCIOWO POPRAWIONO]:
   - Dodano komentarze i wstępną logikę sprawdzającą, ale pełna synchronizacja z wirtualnym stanem wymaga dalszych testów integracyjnych.
-* Błąd JavaScript w `order_form.html` [W TRAKCIE]:
-  - Problem nadal istnieje w formie "brudnego" fixa w `OrderForm`. Wymaga globalnego uporządkowania skryptów JS.
 * Usprawnienia procesu zamówień i komunikacji:
   - System powiadomień SMS/E-mail (integracja z API typu Twilio/SmsApi dla progów krytycznych).
   - Elastyczne szablony zamówień (PDF/E-mail) z możliwością wyboru kanału (sklep stacjonarny, telefon, e-commerce).
@@ -45,6 +43,9 @@
 
 --- ZROBIONE ---
 [MODUŁ MAGAZYNU (INVENTORY)]
+* Domyślne sortowanie produktów po ulubionych i nazwie [ZREALIZOWANO]:
+  - Zaktualizowano widok `product_list`, aby produkty ulubione (`is_favourite=True`) znajdowały się na samej górze listy, a następnie produkty były sortowane alfabetycznie po nazwie.
+  - Dodano testy jednostkowe w `inventory/tests.py`.
 * N+1 zapytań w `product_list` [NAPRAWIONO]:
   - W `inventory/models.py` zoptymalizowano `active_batches` korzystając z cache prefetchingu.
   - W `product_row.html` zmieniono wywołania na `computed_total_stock` oraz filtry Django zamiast metod QuerySet.
@@ -73,6 +74,9 @@
   - W `orders/templates/orders/partials/order_form.html` poprawiono logikę wyboru adresu URL, zastępując niedozwolone `form.instance._state.adding` flagą `is_edit` przekazywaną z widoku.
   - Naprawiono błąd `TemplateSyntaxError` związany z dostępem do prywatnych atrybutów modelu w szablonach Django.
   - Poprawiono przekazywanie danych VAT do JavaScript w formularzu zamówienia (użycie `json.dumps` zamiast bezpośredniego słownika w szablonie).
+* Błąd JavaScript i obsługa VAT w `order_form.html` [NAPRAWIONO]:
+  - Usunięto inline atrybut `onchange` z `OrderForm` w `orders/forms.py`.
+  - Uporządkowano logikę JS w `order_form.html` (czysty nasłuch zdarzeń, izolacja w IIFE, bezpieczne parsowanie danych VAT).
 * Problemy z otwieraniem/zamykaniem formularzy zamówień [NAPRAWIONO]:
   - Ujednolicono system modali, przenosząc zamówienia na globalny `productModal` i target `#modal-content`.
   - Rozwiązano problem niepojawiających się formularzy edycji i nowego zamówienia (nieprawidłowe targety HTMX).
