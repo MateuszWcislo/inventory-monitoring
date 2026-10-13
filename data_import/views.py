@@ -1,6 +1,6 @@
 import json
 from decimal import Decimal
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.contrib import messages
@@ -17,6 +17,12 @@ def import_dashboard(request):
         'jobs': jobs,
     }
     return render(request, 'data_import/dashboard.html', context)
+
+@login_required
+def import_job_detail(request, pk):
+    """Widok szczegółów zadania importu dla modala HTMX."""
+    job = get_object_or_404(ImportJob, pk=pk, tenant=request.user.tenant)
+    return render(request, 'data_import/partials/job_detail.html', {'job': job})
 
 @login_required
 def import_products(request):

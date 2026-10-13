@@ -7,6 +7,7 @@ from tenants.models import Tenant
 from users.models import User
 from inventory.models import Product, ProductBatch, ProductSupplier
 from suppliers.models import Supplier
+from data_import.models import ImportJob
 from data_import.services import (
     parse_uploaded_file,
     analyze_product_import,
@@ -15,7 +16,7 @@ from data_import.services import (
 
 class ProductImportTests(TestCase):
     def setUp(self):
-        self.tenant = Tenant.objects.create(name="Firma Testowa")
+        self.tenant = Tenant.objects.create(name="Firma Testowa", subdomain="firma-testowa")
         self.user = User.objects.create_user(
             username="testuser",
             email="test@example.com",
@@ -136,3 +137,39 @@ class ProductImportTests(TestCase):
         self.assertEqual(resp2.context['result']['imported_count'], 1)
         self.assertTrue(Product.objects.filter(tenant=self.tenant, name='Produkt A').exists())
         self.assertFalse(Product.objects.filter(tenant=self.tenant, name='Produkt B').exists())
+
+    def test_import_job_detail_view(self):
+        self.client.force_login(self.user)
+        job = ImportJob.objects.create(
+            tenant=self.tenant,
+            user=self.user,
+            file_type='PRODUCTS',
+            status='COMPLETED',
+            file_name='test_file.xlsx',
+            records_total=10,
+            records_imported=8,
+            records_failed=2,
+            error_log="Wiersz 3: Błąd walidacji\nWiersz 5: Brak dostawcy"
+        )
+
+        response = self.client.get(f'/import/job/{job.id}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'data_import/partials/job_detail.html')
+        self.assertContains(response, 'test_file.xlsx')
+        self.assertContains(response, 'Wiersz 3: Błąd walidacji')
+        self.assertContains(response, 'Wiersz 5: Brak dostawcy')
+        self.assertContains(response, '10')
+        self.assertContains(response, '8')
+        self.assertContains(response, '2')
+
+    def test_import_job_detail_tenant_isolation(self):
+        other_tenant = Tenant.objects.create(name="Inna Firma", subdomain="inna-firma")
+        other_job = ImportJob.objects.create(
+            tenant=other_tenant,
+            file_type='PRODUCTS',
+            status='COMPLETED',
+            file_name='other.xlsx'
+        )
+        self.client.force_login(self.user)
+        response = self.client.get(f'/import/job/{other_job.id}/')
+        self.assertEqual(response.status_code, 404)

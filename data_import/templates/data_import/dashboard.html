@@ -82,7 +82,14 @@
                                 {{ job.records_imported }}/{{ job.records_total }}
                             </td>
                             <td class="pe-4">
-                                <button class="btn btn-sm btn-light"><i class="bi bi-info-circle"></i></button>
+                                <button class="btn btn-sm btn-light"
+                                        title="Szczegóły zadania"
+                                        hx-get="{% url 'import_job_detail' job.id %}"
+                                        hx-target="#modal-content"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#productModal">
+                                    <i class="bi bi-info-circle"></i>
+                                </button>
                             </td>
                         </tr>
                         {% empty %}

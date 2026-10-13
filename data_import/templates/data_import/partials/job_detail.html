@@ -1,0 +1,74 @@
+<div class="modal-header bg-light border-bottom">
+    <h5 class="modal-title">
+        <i class="bi bi-info-circle me-2 text-primary"></i>
+        Szczegóły zadania importu
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+
+<div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="p-3 bg-light rounded border h-100">
+                <h6 class="text-muted small text-uppercase fw-bold mb-3 border-bottom pb-1">Informacje ogólne</h6>
+                <div class="mb-2">
+                    <small class="text-muted d-block">Nazwa pliku:</small>
+                    <span class="fw-bold text-break">{{ job.file_name }}</span>
+                </div>
+                <div class="mb-2">
+                    <small class="text-muted d-block">Typ danych:</small>
+                    <span class="badge bg-secondary">{{ job.get_file_type_display }}</span>
+                </div>
+                <div class="mb-2">
+                    <small class="text-muted d-block">Użytkownik:</small>
+                    <span>{{ job.user.username|default:"System" }}</span>
+                </div>
+                <div class="mb-0">
+                    <small class="text-muted d-block">Data i czas:</small>
+                    <span>{{ job.created_at|date:"d.m.Y H:i:s" }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="p-3 bg-light rounded border h-100">
+                <h6 class="text-muted small text-uppercase fw-bold mb-3 border-bottom pb-1">Status i statystyki</h6>
+                <div class="mb-2">
+                    <small class="text-muted d-block">Status zadania:</small>
+                    <span class="badge {% if job.status == 'COMPLETED' %}bg-success{% elif job.status == 'FAILED' %}bg-danger{% else %}bg-info{% endif %}">
+                        {{ job.get_status_display }}
+                    </span>
+                </div>
+                <div class="mb-2">
+                    <small class="text-muted d-block">Liczba wszystkich wierszy:</small>
+                    <span class="fw-bold fs-6">{{ job.records_total }}</span>
+                </div>
+                <div class="mb-2">
+                    <small class="text-muted d-block">Zaimportowano pomyślnie:</small>
+                    <span class="text-success fw-bold fs-6">{{ job.records_imported }}</span>
+                </div>
+                <div class="mb-0">
+                    <small class="text-muted d-block">Błędy / Odrzucone:</small>
+                    <span class="{% if job.records_failed > 0 %}text-danger fw-bold{% else %}text-muted{% endif %} fs-6">{{ job.records_failed }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <h6 class="text-primary small text-uppercase fw-bold mb-2">
+            <i class="bi bi-file-earmark-text me-1"></i>Logi i komunikaty operacji (error_log)
+        </h6>
+        {% if job.error_log %}
+            <div class="bg-dark text-light p-3 rounded" style="font-family: monospace; font-size: 0.85rem; max-height: 250px; overflow-y: auto; white-space: pre-wrap;">{{ job.error_log }}</div>
+        {% else %}
+            <div class="alert alert-light border text-muted small mb-0 py-3 text-center">
+                <i class="bi bi-check-circle-fill text-success me-1"></i> Brak zarejestrowanych ostrzeżeń ani błędów dla tego zadania.
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="modal-footer bg-light border-top">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
+</div>
