@@ -120,3 +120,80 @@ class AutoOrderLogicTest(TestCase):
         # Form for new order should NOT disable fields as removed
         self.assertFalse(form.fields['quantity'].disabled)
         self.assertNotIn('(USUNIĘTY)', str(form.fields['product'].help_text))
+
+
+class OrderCrossTenantIsolationTests(TestCase):
+    def setUp(self):
+        self.tenant_a = Tenant.objects.create(name="Tenant A", subdomain="tenant-a")
+        self.tenant_b = Tenant.objects.create(name="Tenant B", subdomain="tenant-b")
+
+        self.user_a = User.objects.create_user(
+            username="user_a",
+            email="user_a_ord@test.com",
+            password="password_a",
+            tenant=self.tenant_a
+        )
+        self.user_b = User.objects.create_user(
+            username="user_b",
+            email="user_b_ord@test.com",
+            password="password_b",
+            tenant=self.tenant_b
+        )
+
+        self.supp_a = Supplier.objects.create(name="Dostawca A", tenant=self.tenant_a)
+        self.supp_b = Supplier.objects.create(name="Dostawca B", tenant=self.tenant_b)
+
+        self.prod_a = Product.objects.create(name="Produkt A", tenant=self.tenant_a)
+        self.prod_b = Product.objects.create(name="Produkt B", tenant=self.tenant_b)
+
+        ProductSupplier.objects.create(tenant=self.tenant_a, product=self.prod_a, supplier=self.supp_a)
+        ProductSupplier.objects.create(tenant=self.tenant_b, product=self.prod_b, supplier=self.supp_b)
+
+        self.order_a = Order.objects.create(
+            tenant=self.tenant_a,
+            product=self.prod_a,
+            supplier=self.supp_a,
+            quantity=5,
+            net_price=Decimal("10.00"),
+            status='CREATED'
+        )
+        self.order_b = Order.objects.create(
+            tenant=self.tenant_b,
+            product=self.prod_b,
+            supplier=self.supp_b,
+            quantity=10,
+            net_price=Decimal("20.00"),
+            status='CREATED'
+        )
+
+    def test_order_edit_cross_tenant_denied(self):
+        from django.test import Client
+        from django.urls import reverse
+        client = Client()
+        client.login(username="user_a", password="password_a")
+
+        # Próba edycji zamówienia tenanta B przez usera A -> 404
+        response = client.get(reverse('order_edit', kwargs={'pk': self.order_b.pk}))
+        self.assertEqual(response.status_code, 404)
+
+        # Próba zmiany statusu
+        response = client.post(reverse('order_status_update', kwargs={'pk': self.order_b.pk}), {'status': 'CANCELLED'})
+        self.assertEqual(response.status_code, 404)
+
+        # Próba usunięcia
+        response = client.post(reverse('order_delete', kwargs={'pk': self.order_b.pk}))
+        self.assertEqual(response.status_code, 404)
+
+    def test_order_form_cross_tenant_validation(self):
+        # Próba utworzenia formularza z produktem tenanta B przez usera A
+        form_data = {
+            'product': self.prod_b.id,
+            'supplier': self.supp_a.id,
+            'quantity': 10,
+            'net_price': '15.00',
+            'order_type': 'MANUAL',
+            'status': 'CREATED'
+        }
+        form = OrderForm(data=form_data, user=self.user_a)
+        self.assertFalse(form.is_valid())
+        self.assertIn('product', form.errors)
