@@ -34,14 +34,20 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
-                   <li class="nav-item">
-                        <a class="nav-link" href="{% url 'product_list' %}"><i class="bi bi-box-seam me-1"></i>Produkty</a>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/' or 'product' in request.path and 'import' not in request.path %}active{% endif %}" href="{% url 'product_list' %}"><i class="bi bi-box-seam me-1"></i>Produkty</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'supplier_list' %}"><i class="bi bi-truck me-1"></i>Dostawcy</a>
+                        <a class="nav-link {% if 'locations' in request.path %}active{% endif %}" href="{% url 'location_list' %}"><i class="bi bi-geo-alt me-1"></i>Magazyny</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'order_list' %}"><i class="bi bi-cart-check me-1"></i>Zamówienia</a>
+                        <a class="nav-link {% if 'stocktakes' in request.path %}active{% endif %}" href="{% url 'stocktake_list' %}"><i class="bi bi-clipboard2-check me-1"></i>Inwentaryzacja</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'suppliers' in request.path %}active{% endif %}" href="{% url 'supplier_list' %}"><i class="bi bi-truck me-1"></i>Dostawcy</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'orders' in request.path and 'work-orders' not in request.path %}active{% endif %}" href="{% url 'order_list' %}"><i class="bi bi-cart-check me-1"></i>Zamówienia</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link d-flex align-items-center gap-2 {% if 'services' in request.path %}active{% endif %}"

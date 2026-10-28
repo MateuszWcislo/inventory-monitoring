@@ -1,18 +1,27 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 from django.db import transaction
 from django.db.models import Q, Sum, F, Value
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 from decimal import Decimal
 
-from .models import Product, ProductBatch, ProductSupplier, ActivityLog
+from .models import Product, ProductBatch, ProductSupplier, ActivityLog, Location, Stocktake, StocktakeItem
+from .forms import (
+    ProductForm, SupplierFormSet, BatchFormSet,
+    LocationForm, StocktakeForm, StocktakeItemForm
+)
+from orders.models import Order
+from suppliers.models import Supplier
+from orders.utils import process_auto_order_logic
+
 
 @login_required
 def activity_log_list(request):
     """Widok globalnej historii aktywności."""
     logs = ActivityLog.objects.filter(tenant=request.user.tenant).select_related('product', 'product_batch', 'user')
-    
+
     # Proste filtrowanie po produkcie
     product_id = request.GET.get('product')
     if product_id:
@@ -24,18 +33,27 @@ def activity_log_list(request):
     }
     return render(request, 'inventory/activity_logs.html', context)
 
-from .forms import ProductForm, SupplierFormSet, BatchFormSet
-from orders.models import Order
-from suppliers.models import Supplier
-from orders.utils import process_auto_order_logic
-
 
 @login_required
 def product_list(request):
     # 1. Pobieramy bazowy QuerySet z wyliczonym stanem (używając Coalesce dla produktów bez partii)
-    products = Product.objects.filter(tenant=request.user.tenant).annotate(
-        computed_total_stock=Coalesce(Sum('batches__current_stock'), Value(0))
-    ).prefetch_related('batches', 'supplier_mappings__supplier')
+    location_id = request.GET.get('location', '')
+    
+    products = Product.objects.filter(tenant=request.user.tenant)
+
+    if location_id:
+        products = products.annotate(
+            computed_total_stock=Coalesce(
+                Sum('batches__current_stock', filter=Q(batches__location_id=location_id)),
+                Value(0)
+            )
+        )
+    else:
+        products = products.annotate(
+            computed_total_stock=Coalesce(Sum('batches__current_stock'), Value(0))
+        )
+
+    products = products.prefetch_related('batches__location', 'supplier_mappings__supplier')
 
     # 2. POBIERANIE PARAMETRÓW
     query = request.GET.get('q', '').strip()
@@ -80,6 +98,8 @@ def product_list(request):
     context = {
         'products': products,
         'suppliers': Supplier.objects.filter(tenant=request.user.tenant),
+        'locations': Location.objects.filter(tenant=request.user.tenant),
+        'selected_location': location_id,
         'current_sort': sort_by,
         'current_direction': direction,
         'current_filters_params': qd.urlencode(),
@@ -101,7 +121,7 @@ def product_create(request):
     if request.method == "POST":
         form = ProductForm(request.POST)
         supp_formset = SupplierFormSet(request.POST, prefix='suppliers', tenant=request.user.tenant)
-        batch_formset = BatchFormSet(request.POST, prefix='batches')
+        batch_formset = BatchFormSet(request.POST, prefix='batches', tenant=request.user.tenant)
 
         if form.is_valid() and supp_formset.is_valid() and batch_formset.is_valid():
             with transaction.atomic():
@@ -136,7 +156,7 @@ def product_create(request):
     else:
         form = ProductForm()
         supp_formset = SupplierFormSet(prefix='suppliers', tenant=request.user.tenant)
-        batch_formset = BatchFormSet(prefix='batches')
+        batch_formset = BatchFormSet(prefix='batches', tenant=request.user.tenant)
 
     return render(request, 'inventory/partials/product_form.html', {
         'form': form,
@@ -153,7 +173,7 @@ def product_edit(request, pk):
     if request.method == "POST":
         form = ProductForm(request.POST, instance=product)
         supp_formset = SupplierFormSet(request.POST, instance=product, prefix='suppliers', tenant=request.user.tenant)
-        batch_formset = BatchFormSet(request.POST, instance=product, prefix='batches')
+        batch_formset = BatchFormSet(request.POST, instance=product, prefix='batches', tenant=request.user.tenant)
 
         if form.is_valid() and supp_formset.is_valid() and batch_formset.is_valid():
             with transaction.atomic():
@@ -190,7 +210,7 @@ def product_edit(request, pk):
     else:
         form = ProductForm(instance=product)
         supp_formset = SupplierFormSet(instance=product, prefix='suppliers', tenant=request.user.tenant)
-        batch_formset = BatchFormSet(instance=product, prefix='batches')
+        batch_formset = BatchFormSet(instance=product, prefix='batches', tenant=request.user.tenant)
 
     return render(request, 'inventory/partials/product_form.html', {
         'form': form,
@@ -341,13 +361,251 @@ def add_supplier_row(request):
 
 
 def add_batch_row(request):
-    formset = BatchFormSet(queryset=ProductBatch.objects.none(), prefix='batches')
+    tenant = getattr(request.user, 'tenant', None) if request.user.is_authenticated else None
+    formset = BatchFormSet(queryset=ProductBatch.objects.none(), prefix='batches', tenant=tenant)
     form = formset.empty_form
 
-    if hasattr(request.user, 'tenant') and request.user.is_authenticated and request.user.tenant:
-        form.initial['tenant'] = request.user.tenant.id
+    if tenant:
+        form.initial['tenant'] = tenant.id
 
     return render(request, 'inventory/partials/formset_row.html', {
         'form': form,
         'prefix': 'batches'
     })
+
+
+# --- MODUŁ LOKALIZACJI (MAGAZYNY) ---
+
+@login_required
+def location_list(request):
+    locations = Location.objects.filter(tenant=request.user.tenant).annotate(
+        batches_count=Sum('batches__current_stock')
+    )
+    return render(request, 'inventory/location_list.html', {
+        'locations': locations
+    })
+
+
+@login_required
+def location_create(request):
+    if request.method == "POST":
+        form = LocationForm(request.POST)
+        if form.is_valid():
+            loc = form.save(commit=False)
+            loc.tenant = request.user.tenant
+            loc.save()
+            return redirect('location_list')
+    else:
+        form = LocationForm()
+
+    return render(request, 'inventory/partials/location_form.html', {
+        'form': form,
+        'title': 'Dodaj magazyn'
+    })
+
+
+@login_required
+def location_edit(request, pk):
+    loc = get_object_or_404(Location, pk=pk, tenant=request.user.tenant)
+    if request.method == "POST":
+        form = LocationForm(request.POST, instance=loc)
+        if form.is_valid():
+            form.save()
+            return redirect('location_list')
+    else:
+        form = LocationForm(instance=loc)
+
+    return render(request, 'inventory/partials/location_form.html', {
+        'form': form,
+        'location': loc,
+        'title': f'Edytuj magazyn: {loc.name}'
+    })
+
+
+@login_required
+def location_delete(request, pk):
+    loc = get_object_or_404(Location, pk=pk, tenant=request.user.tenant)
+    # Sprawdzenie czy magazyn nie ma powiązanych partii ze stanem
+    has_active_batches = loc.batches.filter(current_stock__gt=0).exists()
+    if request.method == "POST":
+        if has_active_batches:
+            return HttpResponseForbidden("Nie można usunąć magazynu z aktywnymi stanami magazynowymi.")
+        loc.delete()
+        return redirect('location_list')
+
+    return render(request, 'inventory/partials/confirm_delete_location.html', {
+        'location': loc,
+        'has_active_batches': has_active_batches
+    })
+
+
+# --- MODUŁ INWENTARYZACJI (STOCKTAKES) ---
+
+@login_required
+def stocktake_list(request):
+    stocktakes = Stocktake.objects.filter(tenant=request.user.tenant).select_related('location', 'created_by')
+    return render(request, 'inventory/stocktake_list.html', {
+        'stocktakes': stocktakes
+    })
+
+
+@login_required
+def stocktake_create(request):
+    if request.method == "POST":
+        form = StocktakeForm(request.POST, tenant=request.user.tenant)
+        if form.is_valid():
+            with transaction.atomic():
+                stocktake = form.save(commit=False)
+                stocktake.tenant = request.user.tenant
+                stocktake.created_by = request.user
+                stocktake.save()
+
+                # Generowanie pozycji arkusza ze wszystkich produktów / partii wybranego magazynu (lub wszystkich)
+                batches_qs = ProductBatch.objects.filter(tenant=request.user.tenant)
+                if stocktake.location:
+                    batches_qs = batches_qs.filter(location=stocktake.location)
+
+                for batch in batches_qs.select_related('product'):
+                    StocktakeItem.objects.create(
+                        stocktake=stocktake,
+                        product=batch.product,
+                        batch=batch,
+                        system_quantity=batch.current_stock or 0,
+                        counted_quantity=batch.current_stock or 0
+                    )
+
+                # Dla produktów bez partii w danej lokalizacji
+                products_without_batches = Product.objects.filter(tenant=request.user.tenant).exclude(
+                    id__in=batches_qs.values_list('product_id', flat=True)
+                )
+                for prod in products_without_batches:
+                    StocktakeItem.objects.create(
+                        stocktake=stocktake,
+                        product=prod,
+                        batch=None,
+                        system_quantity=0,
+                        counted_quantity=0
+                    )
+
+            return redirect('stocktake_detail', pk=stocktake.pk)
+    else:
+        form = StocktakeForm(tenant=request.user.tenant)
+
+    return render(request, 'inventory/partials/stocktake_form.html', {
+        'form': form,
+        'title': 'Nowa inwentaryzacja'
+    })
+
+
+@login_required
+def stocktake_detail(request, pk):
+    stocktake = get_object_or_404(Stocktake, pk=pk, tenant=request.user.tenant)
+    items = stocktake.items.select_related('product', 'batch', 'batch__location').order_by('product__name')
+
+    total_system = sum(item.system_quantity for item in items)
+    total_counted = sum(item.counted_quantity for item in items)
+    total_difference = total_counted - total_system
+
+    context = {
+        'stocktake': stocktake,
+        'items': items,
+        'total_system': total_system,
+        'total_counted': total_counted,
+        'total_difference': total_difference,
+    }
+    return render(request, 'inventory/stocktake_detail.html', context)
+
+
+@login_required
+def stocktake_item_update(request, item_id):
+    item = get_object_or_404(StocktakeItem, pk=item_id, stocktake__tenant=request.user.tenant)
+    if item.stocktake.status != 'DRAFT':
+        return HttpResponseForbidden("Nie można edytować zamkniętej inwentaryzacji.")
+
+    if request.method == "POST":
+        counted_qty = request.POST.get('counted_quantity')
+        notes = request.POST.get('notes', '')
+        if counted_qty is not None:
+            try:
+                item.counted_quantity = max(0, int(counted_qty))
+                item.notes = notes
+                item.save()
+            except (ValueError, TypeError):
+                pass
+
+    return render(request, 'inventory/partials/stocktake_item_row.html', {'item': item})
+
+
+@login_required
+def stocktake_complete(request, pk):
+    stocktake = get_object_or_404(Stocktake, pk=pk, tenant=request.user.tenant)
+    if stocktake.status != 'DRAFT':
+        return HttpResponseForbidden("Inwentaryzacja została już przetworzona.")
+
+    if request.method == "POST":
+        with transaction.atomic():
+            for item in stocktake.items.select_related('batch', 'product'):
+                diff = item.difference
+                if diff != 0:
+                    if item.batch:
+                        old_stock = item.batch.current_stock or 0
+                        new_stock = item.counted_quantity
+                        item.batch.current_stock = new_stock
+                        item.batch.save()
+
+                        ActivityLog.objects.create(
+                            tenant=request.user.tenant,
+                            user=request.user,
+                            product=item.product,
+                            product_batch=item.batch,
+                            action='STOCKTAKE_ADJUSTMENT',
+                            description=f"Korekta inwentaryzacyjna ({stocktake.title}): {old_stock} -> {new_stock} (Różnica: {diff:+d})",
+                            old_value=str(old_stock),
+                            new_value=str(new_stock)
+                        )
+                    else:
+                        # Produkt bez partii - tworzymy nową partię w magazynie inwentaryzacji
+                        loc = stocktake.location or Location.get_default_location(request.user.tenant)
+                        new_batch = ProductBatch.objects.create(
+                            tenant=request.user.tenant,
+                            product=item.product,
+                            location=loc,
+                            current_stock=item.counted_quantity,
+                            net_price=Decimal('0.00'),
+                            gross_price=Decimal('0.00')
+                        )
+                        item.batch = new_batch
+                        item.save()
+
+                        ActivityLog.objects.create(
+                            tenant=request.user.tenant,
+                            user=request.user,
+                            product=item.product,
+                            product_batch=new_batch,
+                            action='STOCKTAKE_ADJUSTMENT',
+                            description=f"Utworzono partię z inwentaryzacji ({stocktake.title}): stan {item.counted_quantity}",
+                            old_value='0',
+                            new_value=str(item.counted_quantity)
+                        )
+
+            stocktake.status = 'COMPLETED'
+            stocktake.completed_at = timezone.now()
+            stocktake.save()
+
+        return redirect('stocktake_detail', pk=stocktake.pk)
+
+    return render(request, 'inventory/partials/confirm_stocktake_complete.html', {'stocktake': stocktake})
+
+
+@login_required
+def stocktake_cancel(request, pk):
+    stocktake = get_object_or_404(Stocktake, pk=pk, tenant=request.user.tenant)
+    if stocktake.status != 'DRAFT':
+        return HttpResponseForbidden("Nie można anulować zatwierdzonej inwentaryzacji.")
+
+    if request.method == "POST":
+        stocktake.status = 'CANCELLED'
+        stocktake.save()
+        return redirect('stocktake_detail', pk=stocktake.pk)
+
+    return render(request, 'inventory/partials/confirm_stocktake_cancel.html', {'stocktake': stocktake})

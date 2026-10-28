@@ -25,6 +25,10 @@
         <div class="d-none">{{ form.DELETE }}</div>
 
         <div class="col-3">
+            <label class="tiny-label text-muted mb-1">Magazyn</label>
+            {{ form.location }}
+        </div>
+        <div class="col-2">
             <label class="tiny-label text-muted mb-1">Ilość</label>
             {{ form.current_stock }}
         </div>
@@ -36,7 +40,7 @@
             <label class="tiny-label text-muted mb-1">Brutto</label>
             {{ form.gross_price }}
         </div>
-        <div class="col-2 text-center pb-1">
+        <div class="col-1 text-center pb-1">
             <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this, 'batches')">
                 <i class="bi bi-trash"></i>
             </button>

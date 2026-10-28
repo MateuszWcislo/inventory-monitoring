@@ -1,8 +1,48 @@
 from django import forms
 from django.forms import inlineformset_factory
 from django.forms.models import BaseInlineFormSet
-from .models import Product, ProductSupplier, ProductBatch
+from .models import Product, ProductSupplier, ProductBatch, Location, Stocktake, StocktakeItem
 from suppliers.models import Supplier
+
+
+class LocationForm(forms.ModelForm):
+    class Meta:
+        model = Location
+        fields = ['name', 'code', 'address', 'is_default']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'np. Magazyn Główny'}),
+            'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'np. MAG-01'}),
+            'address': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'np. ul. Magazynowa 1, Warszawa'}),
+            'is_default': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class StocktakeForm(forms.ModelForm):
+    class Meta:
+        model = Stocktake
+        fields = ['title', 'location', 'notes']
+        widgets = {
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'np. Inwentaryzacja Q4 2026'}),
+            'location': forms.Select(attrs={'class': 'form-select'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Dodatkowe uwagi...'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.tenant = kwargs.pop('tenant', None)
+        super().__init__(*args, **kwargs)
+        if self.tenant:
+            self.fields['location'].queryset = Location.objects.filter(tenant=self.tenant)
+            self.fields['location'].empty_label = "Wszystkie magazyny"
+
+
+class StocktakeItemForm(forms.ModelForm):
+    class Meta:
+        model = StocktakeItem
+        fields = ['counted_quantity', 'notes']
+        widgets = {
+            'counted_quantity': forms.NumberInput(attrs={'class': 'form-control form-control-sm counted-input', 'min': '0'}),
+            'notes': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Komentarz do różnicy'}),
+        }
 
 
 class ProductForm(forms.ModelForm):
@@ -70,13 +110,46 @@ SupplierFormSet = inlineformset_factory(
     }
 )
 
+
+class BaseBatchInlineFormSet(BaseInlineFormSet):
+    def __init__(self, *args, **kwargs):
+        self.tenant = kwargs.pop('tenant', None)
+        super().__init__(*args, **kwargs)
+        if self.tenant:
+            for form in self.forms:
+                form.fields['location'].queryset = Location.objects.filter(tenant=self.tenant)
+                if not form.instance.pk and not form.initial.get('location'):
+                    default_loc = Location.get_default_location(self.tenant)
+                    form.fields['location'].initial = default_loc
+
+    def _construct_form(self, i, **kwargs):
+        form = super()._construct_form(i, **kwargs)
+        if self.tenant:
+            form.fields['location'].queryset = Location.objects.filter(tenant=self.tenant)
+            if not form.instance.pk and not form.initial.get('location'):
+                default_loc = Location.get_default_location(self.tenant)
+                form.fields['location'].initial = default_loc
+        return form
+
+    @property
+    def empty_form(self):
+        form = super().empty_form
+        if self.tenant:
+            form.fields['location'].queryset = Location.objects.filter(tenant=self.tenant)
+            default_loc = Location.get_default_location(self.tenant)
+            form.fields['location'].initial = default_loc
+        return form
+
+
 BatchFormSet = inlineformset_factory(
     Product,
     ProductBatch,
-    fields=('current_stock', 'net_price', 'gross_price'),
+    formset=BaseBatchInlineFormSet,
+    fields=('location', 'current_stock', 'net_price', 'gross_price'),
     extra=0,
     can_delete=True,
     widgets={
+        'location': forms.Select(attrs={'class': 'form-select form-select-sm'}),
         'current_stock': forms.NumberInput(attrs={'class': 'form-control form-control-sm'}),
         'net_price': forms.NumberInput(attrs={'class': 'form-control form-control-sm net-price', 'step': '0.01'}),
         'gross_price': forms.NumberInput(attrs={'class': 'form-control form-control-sm gross-price', 'step': '0.01'}),

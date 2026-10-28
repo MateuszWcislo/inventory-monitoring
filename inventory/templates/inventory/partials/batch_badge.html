@@ -1,5 +1,10 @@
 <div class="badge bg-light text-dark border d-flex justify-content-between align-items-center p-2 mb-1">
-    <span class="me-2 text-muted">{{ batch.net_price }} / {{ batch.gross_price }} zł:</span>
+    <span class="me-2 text-muted">
+        {% if batch.location %}
+            <span class="badge bg-secondary-subtle text-secondary me-1">{{ batch.location.name }}</span>
+        {% endif %}
+        {{ batch.net_price }} / {{ batch.gross_price }} zł:
+    </span>
 
     <form hx-post="{% url 'quick_update_batch_stock' batch.id %}"
           hx-trigger="change from:find input"

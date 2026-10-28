@@ -21,8 +21,10 @@ class Service(models.Model):
     def save(self, *args, **kwargs):
         if self.net_price is not None:
             # Obliczamy: netto * (1 + vat/100)
-            vat_factor = Decimal(1) + (self.vat_rate / Decimal(100))
-            self.gross_price = (self.net_price * vat_factor).quantize(Decimal('0.01'))
+            net = Decimal(str(self.net_price))
+            vat_rate_dec = Decimal(str(self.vat_rate)) if self.vat_rate is not None else Decimal("23.0")
+            vat_factor = Decimal(1) + (vat_rate_dec / Decimal(100))
+            self.gross_price = (net * vat_factor).quantize(Decimal('0.01'))
         super().save(*args, **kwargs)
 
     def __str__(self):

@@ -18,12 +18,6 @@
   - Elastyczne szablony zamówień (PDF/E-mail) z możliwością wyboru kanału (sklep stacjonarny, telefon, e-commerce).
   - Statusy Dostaw: Ręczne wiązanie numerów przesyłek z zamówieniami + integracja z API kurierów (InPost, DPD, DHL) do śledzenia statusu bezpośrednio w aplikacji.
 
-[MODUŁ MAGAZYNU (INVENTORY)]
-* Wyciek danych (Cross-tenant leak) [DO DALSZEJ ANALIZY]:
-  - Zabezpieczono formsety, ale widoki edycji wymagają dodatkowej weryfikacji filtrów `tenant`.
-* [PRIORYTET] Obsługa wielu magazynów (Locations) dla jednego tenanta.
-* Moduł Inwentaryzacji (zatwierdzanie różnic między stanem systemowym a faktycznym).
-
 [MODUŁ IMPORTU (DATA_IMPORT)]
 * Dedykowany import dostawców (masowe dodawanie kontrahentów z pliku CSV/Excel).
 * Dedykowany import cenników / powiązań produkt-dostawca (aktualizacja cen zakupu i kodów SKU u dostawców).
@@ -43,6 +37,22 @@
 
 --- ZROBIONE ---
 [MODUŁ MAGAZYNU (INVENTORY)]
+* Obsługa wielu magazynów (Locations) dla jednego tenanta [ZREALIZOWANO]:
+  - Dodano model `Location` przypisany do tenanta (nazwa, kod, adres, flaga magazynu domyślnego).
+  - Powiązano partie towaru (`ProductBatch`) z lokalizacją magazynową (`location`) z automatycznym przypisywaniem magazynu domyślnego.
+  - Zbudowano pełny CRUD magazynów (widoki, formularze modalne, ochrona przed usuwaniem magazynów z aktywnym towarem).
+  - Dodano filtrowanie produktów po magazynie na liście produktów oraz etykiety magazynów przy partiach towaru.
+  - Zaktualizowano formularze dodawania/edycji partii o wybór magazynu.
+* Moduł Inwentaryzacji (Stocktakes) [ZREALIZOWANO]:
+  - Dodano modele `Stocktake` (sesje inwentaryzacyjne ze statusami DRAFT, COMPLETED, CANCELLED) oraz `StocktakeItem` (pozycje arkusza).
+  - Umożliwiono tworzenie arkuszy spisowych dla wybranego magazynu lub całego tenanta z automatycznym załadowaniem stanów systemowych.
+  - Zaimplementowano interfejs spisu z natury z natychmiastowym przeliczaniem różnic (HTMX).
+  - Zaimplementowano mechanizm zatwierdzania inwentaryzacji: aktualizację stanów w partiach towaru, tworzenie partii dla nowych towarów oraz rejestrację wpisów `STOCKTAKE_ADJUSTMENT` w `ActivityLog`.
+  - Dodano podsumowania bilansu (suma wg systemu, spisana z natury, łączna różnica).
+* Wyciek danych (Cross-tenant leak) [ZWERYFIKOWANO I ZABEZPIECZONO]:
+  - Przeprowadzono pełny audyt wszystkich widoków edycji, usuwania i formularzy/formsetów (`inventory`, `suppliers`, `orders`, `services`, `work_orders`, `data_import`).
+  - Potwierdzono i zaimplementowano filtry `tenant` w `get_object_or_404`, `QuerySet` formularzy oraz operacjach modyfikacji.
+  - Dodano dedykowane testy jednostkowe badające izolację tenanta (brak dostępu i uprawnień do obiektów innego klienta).
 * Domyślne sortowanie produktów po ulubionych i nazwie [ZREALIZOWANO]:
   - Zaktualizowano widok `product_list`, aby produkty ulubione (`is_favourite=True`) znajdowały się na samej górze listy, a następnie produkty były sortowane alfabetycznie po nazwie.
   - Dodano testy jednostkowe w `inventory/tests.py`.
