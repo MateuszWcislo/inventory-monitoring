@@ -181,21 +181,21 @@ def product_edit(request, pk):
                 product._skip_signal = True
                 product.save()
 
+                supp_instances = supp_formset.save(commit=False)
                 # Usuwamy powiązania zaznaczone do skasowania
                 for obj in supp_formset.deleted_objects:
                     obj.delete()
 
-                supp_instances = supp_formset.save(commit=False)
                 for instance in supp_instances:
                     instance.tenant = request.user.tenant
                     instance.save()
                 supp_formset.save_m2m()
 
+                batch_instances = batch_formset.save(commit=False)
                 # Partie zaznaczone do skasowania
                 for obj in batch_formset.deleted_objects:
                     obj.delete()
 
-                batch_instances = batch_formset.save(commit=False)
                 for instance in batch_instances:
                     instance.tenant = request.user.tenant
                     instance._skip_signal = True

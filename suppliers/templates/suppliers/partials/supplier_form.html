@@ -70,7 +70,7 @@
                         <thead class="table-light sticky-top" style="z-index: 10;">
                             <tr>
                                 <th class="ps-3 text-center" style="width: 50px;">
-                                    <i class="bi bi-check2-all"></i>
+                                    <input type="checkbox" id="selectAllProducts" class="form-check-input shadow-none cursor-pointer" title="Zaznacz / odznacz wszystkie">
                                 </th>
                                 <th>Produkt</th>
                                 <th style="width: 260px;">SKU u tego dostawcy</th>
@@ -138,10 +138,20 @@
 
 <script>
     /**
-     * Zarządzanie interakcją pól SKU
+     * Zarządzanie interakcją pól SKU i masowym zaznaczaniem produktów
      */
     function initProductFormLogic() {
+        const selectAll = document.getElementById('selectAllProducts');
         const rows = document.querySelectorAll('.product-row');
+        const checkboxes = document.querySelectorAll('.product-checkbox');
+
+        const updateSelectAllState = () => {
+            if (!selectAll || checkboxes.length === 0) return;
+            const total = checkboxes.length;
+            const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+            selectAll.checked = checkedCount === total && total > 0;
+            selectAll.indeterminate = checkedCount > 0 && checkedCount < total;
+        };
 
         rows.forEach(row => {
             const cb = row.querySelector('.product-checkbox');
@@ -162,9 +172,24 @@
                 }
             };
 
-            cb.addEventListener('change', refreshState);
+            cb.addEventListener('change', () => {
+                refreshState();
+                updateSelectAllState();
+            });
             refreshState();
         });
+
+        if (selectAll) {
+            selectAll.addEventListener('change', () => {
+                const isChecked = selectAll.checked;
+                checkboxes.forEach(cb => {
+                    cb.checked = isChecked;
+                    const event = new Event('change');
+                    cb.dispatchEvent(event);
+                });
+            });
+            updateSelectAllState();
+        }
     }
 
     // Uruchomienie skryptu po załadowaniu modala (dla HTMX)

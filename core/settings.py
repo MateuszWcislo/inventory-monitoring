@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'tenants',
     'users',
     'data_import',
+    'analytics',
 ]
 
 MIDDLEWARE = [

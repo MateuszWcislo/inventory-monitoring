@@ -5,16 +5,26 @@
 <form hx-post="{% url 'supplier_edit_products' supplier.id %}" hx-target="#modal-content">
     {% csrf_token %}
     <div class="modal-body">
-        <div class="input-group mb-3">
+        <div class="input-group mb-2">
             <span class="input-group-text"><i class="bi bi-search"></i></span>
             <input type="text" id="pSearch" class="form-control" placeholder="Szukaj produktu..." onkeyup="filterP()">
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between px-3 py-2 mb-2 bg-light border rounded">
+            <div class="form-check mb-0">
+                <input class="form-check-input cursor-pointer" type="checkbox" id="selectAllModalProducts" onchange="toggleAllModalProducts(this)">
+                <label class="form-check-label small fw-bold cursor-pointer" for="selectAllModalProducts">
+                    Zaznacz wszystkie
+                </label>
+            </div>
+            <span class="badge bg-secondary" id="selectedCountBadge">0 / {{ all_products|length }}</span>
         </div>
 
         <div id="pList" class="list-group" style="max-height: 400px; overflow-y: auto;">
             {% for p in all_products %}
                 <label class="list-group-item d-flex gap-2 cursor-pointer p-item">
-                    <input class="form-check-input" type="checkbox" name="products" value="{{ p.id }}"
-                           {% if p.id in current_product_ids %}checked{% endif %}>
+                    <input class="form-check-input product-modal-cb" type="checkbox" name="products" value="{{ p.id }}"
+                           {% if p.id in current_product_ids %}checked{% endif %} onchange="updateModalSelectAllState()">
                     <span class="p-name">{{ p.name }}</span>
                 </label>
             {% endfor %}
@@ -36,4 +46,35 @@ function filterP() {
         item.style.display = name.includes(val) ? "" : "none";
     });
 }
+
+function toggleAllModalProducts(masterCb) {
+    const isChecked = masterCb.checked;
+    const items = document.querySelectorAll('.p-item');
+    items.forEach(item => {
+        if (item.style.display !== 'none') {
+            const cb = item.querySelector('.product-modal-cb');
+            if (cb) {
+                cb.checked = isChecked;
+            }
+        }
+    });
+    updateModalSelectAllState();
+}
+
+function updateModalSelectAllState() {
+    const cbs = document.querySelectorAll('.product-modal-cb');
+    const masterCb = document.getElementById('selectAllModalProducts');
+    const badge = document.getElementById('selectedCountBadge');
+    
+    const checkedCount = Array.from(cbs).filter(cb => cb.checked).length;
+    if (badge) {
+        badge.textContent = `${checkedCount} / ${cbs.length}`;
+    }
+    if (masterCb && cbs.length > 0) {
+        masterCb.checked = checkedCount === cbs.length;
+        masterCb.indeterminate = checkedCount > 0 && checkedCount < cbs.length;
+    }
+}
+
+updateModalSelectAllState();
 </script>

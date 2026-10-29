@@ -77,6 +77,13 @@
                             <span>Import</span>
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link d-flex align-items-center gap-2 {% if 'analytics' in request.path %}active fw-bold text-primary{% endif %}"
+                           href="{% url 'analytics_dashboard' %}">
+                            <i class="bi bi-graph-up"></i>
+                            <span>Raporty</span>
+                        </a>
+                    </li>
                     {% if user.role == 'ADMIN' or user.is_superuser %}
                     <li class="nav-item">
                         <a class="nav-link text-info" href="{% url 'user_list' %}"><i class="bi bi-people me-1"></i>Użytkownicy</a>

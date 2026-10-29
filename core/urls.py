@@ -43,4 +43,6 @@ urlpatterns = [
     path('users/', include('users.urls')),
     # Import
     path('import/', include('data_import.urls')),
+    # Analytics & Reports
+    path('analytics/', include('analytics.urls')),
 ]

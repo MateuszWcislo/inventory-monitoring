@@ -25,18 +25,42 @@
 [MODUŁ ZLECEŃ PRACY (WORK ORDERS)]
 * Generowanie faktur z poziomu zleceń (Work Orders).
 
-[ANALITYKA I RAPORTOWANIE]
-* Dashboard z wykresami (np. rotacja zapasów, najczęściej zamawiane produkty).
-* Raport przewidywanych kosztów zamówień na podstawie stanów minimalnych.
-* Eksport danych do CSV/Excel (np. stan magazynowy na konkretny dzień).
-
 [OPTYMALIZACJA POD CHMURĘ (CLOUD-READY)]
 * Integracja z Google Cloud Storage / AWS S3 do przechowywania załączników (np. skanów faktur).
 * Wdrożenie Redis do cache'owania wyników zapytań przy dużym ruchu.
 * Implementacja Health Checks dla monitoringu infrastruktury.
 
 --- ZROBIONE ---
+[DANE TESTOWE I ŚRODOWISKO]
+* Zasilenie bazy danymi demonstracyjnymi (tenant 'demo') [ZREALIZOWANO]:
+  - Utworzono skrypt `seed_demo.py` generujący kompleksowy zestaw danych: 2 magazyny (`Magazyn Główny (A)` z flagą domyślną, `Magazyn Pomocniczy (B)`), 3 dostawców, 5 produktów z progami minimalnymi i oznaczonymi faworytami.
+  - Wygenerowano 20 partii magazynowych z cenami zakupu i zróżnicowanymi stanami w obu lokalizacjach.
+  - Utworzono 20 zakończonych zamówień (`status='COMPLETED'`) powiązanych z dostawcami, produktami i partiami.
+  - Dodano usługi oraz zlecenia serwisowe (`WorkOrder`) ze zużyciem części i usług, co zapewnia kompletne dane do wykresów, raportów i testowania systemu.
+
+[ANALITYKA I RAPORTOWANIE]
+* Wykres liniowy trendów produktu w czasie (Dostawy vs Zużycie) [ZREALIZOWANO]:
+  - Dodano interaktywny wykres liniowy zestawiający sumę odebranych zamówień (`Order.status == 'COMPLETED'`) oraz zużycia części w zleceniach pracy (`WorkOrderProduct`) w ujęciu dziennym.
+  - Zaimplementowano selektory: wybór produktu (`product_id`), wybór magazynu (`location_id` / wszystkie magazyny) oraz synchronizację z aktywnym oknem czasowym (`date_from`, `date_to`, presety).
+  - Wdrożono mini KPI dla wybranego produktu (łączna liczba odebranych sztuk, łączna liczba zużytych sztuk, bilans netto w okresie).
+  - Dodano pełne pokrycie testami jednostkowymi w `analytics/tests.py`.
+* Dashboard z wykresami analitycznymi i oknami czasowymi [ZREALIZOWANO]:
+  - Dodano dedykowaną aplikację `analytics` z widokiem podsumowań KPI (liczba produktów, suma stanów, wartość magazynu netto/brutto, liczba braków, szacowany koszt braków).
+  - Wdrożono interaktywny pasek wyboru okna czasowego (`data_from` - `date_to`) oraz szybkie presety (7 dni, 30 dni, 90 dni, Ten miesiąc, Cały okres).
+  - Wdrożono analizę dynamiki w wybranym oknie czasowym: obroty i wolumen zamówień, zużycie części w zleceniach pracy, interaktywne wykresy Chart.js oraz dedykowane tabele podsumowujące pozycje.
+* Raport przewidywanych kosztów zamówień na podstawie stanów minimalnych [ZREALIZOWANO]:
+  - Zbudowano widok raportu analizujący braki poniżej `min_threshold` w ujęciu globalnym lub dla wybranego magazynu.
+  - Automatyczna kalkulacja brakujących ilości, estymacja cen jednostkowych oraz łącznych kosztów zakupu netto/brutto z powiązaniem do sugerowanego dostawcy.
+* Eksport danych do CSV i Excel (.xlsx) [ZREALIZOWANO]:
+  - Wdrożono eksport pełnego stanu magazynowego z podziałem na partie, magazyny i ceny do plików CSV oraz sformatowanego arkusza Excel (`openpyxl`).
+  - Wdrożono eksport raportu prognozowanych kosztów zamówień do CSV oraz Excel.
+  - Wdrożono eksport zużycia części w zleceniach pracy oraz zamówień z uwzględnieniem wybranego okna czasowego (CSV i Excel).
+  - Dodano zakładkę "Raporty" w menu nawigacyjnym aplikacji.
+
 [MODUŁ MAGAZYNU (INVENTORY)]
+* Błąd zapisu edycji produktu (AttributeError: 'ProductSupplierFormSet' object has no attribute 'deleted_objects') [NAPRAWIONO]:
+  - Poprawiono kolejność operacji w widoku `product_edit` w `inventory/views.py`: wywołanie `.save(commit=False)` przed odczytem `deleted_objects` dla formsetów dostawców i partii towaru.
+  - Dodano testy jednostkowe `ProductFormSetEditTests` w `inventory/tests.py` weryfikujące zapis, dodawanie i usuwanie powiązań w formularzu edycji.
 * Obsługa wielu magazynów (Locations) dla jednego tenanta [ZREALIZOWANO]:
   - Dodano model `Location` przypisany do tenanta (nazwa, kod, adres, flaga magazynu domyślnego).
   - Powiązano partie towaru (`ProductBatch`) z lokalizacją magazynową (`location`) z automatycznym przypisywaniem magazynu domyślnego.
@@ -97,6 +121,9 @@
   - Spolszczono komunikaty błędów walidacji w formularzu zamówienia.
 
 [MODUŁ DOSTAWCÓW (SUPPLIERS)]
+* Masowe zaznaczanie asortymentu dostawcy [ZREALIZOWANO]:
+  - W szablonie `supplier_form.html` dodano checkbox `selectAllProducts` w nagłówku tabeli przypisywania asortymentu wraz ze skryptem JS synchronizującym stany checkboxów i pól SKU (wraz ze stanem `indeterminate`).
+  - W szablonie `supplier_products_form.html` dodano przełącznik "Zaznacz wszystkie" z licznikiem zaznaczonych pozycji oraz obsługą filtrowania wyszukiwarką.
 * Brak tooltipów w module Dostawcy [NAPRAWIONO]:
   - Dodano atrybuty `title` do przycisków akcji (Podgląd, Edycja, Usuń) w `supplier_table.html`.
 
