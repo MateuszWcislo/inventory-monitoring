@@ -1,3 +1,20 @@
+--- INSTRUKCJA WDROŻENIA NA PUBLICZNY SERWER (CHECKLISTA) ---
+Przed uruchomieniem aplikacji na serwerze produkcyjnym / publicznym wykonaj następujące kroki:
+1. Skonfiguruj plik `.env` na serwerze (skopiuj `.env.example` -> `.env`):
+   - `DJANGO_SECRET_KEY`: wygeneruj unikalny, losowy klucz produkcyjny.
+   - `DJANGO_DEBUG`: ustaw BEZWZGLĘDNIE na `False`.
+   - `DJANGO_ALLOWED_HOSTS`: wpisz domenę lub publiczny adres IP serwera (np. `twojadomena.pl,www.twojadomena.pl`).
+   - `DJANGO_CSRF_TRUSTED_ORIGINS`: wpisz adres z protokołem (np. `https://twojadomena.pl`).
+2. Zainstaluj zależności z `requirements.txt`:
+   - `pip install -r requirements.txt` (zawiera m.in. Django, django-htmx, openpyxl, whitenoise, python-dotenv).
+3. Zbierz pliki statyczne dla WhiteNoise:
+   - `python manage.py collectstatic --no-input`
+4. Wykonaj migracje bazy danych:
+   - `python manage.py migrate`
+5. Utwórz konto administratora (superusera) i przypisz do firmy (Tenant):
+   - `python manage.py createsuperuser`
+6. Uruchom aplikację za pomocą serwera WSGI/ASGI produkcyjnego (np. Gunicorn, Uvicorn lub panel PythonAnywhere/Render/Railway/Docker).
+
 --- KONTEKST PROJEKTU I CELE ---
 * Obecny etap: Budowa lokalnej aplikacji MVP, analiza wymagań i funkcjonalności.
 * Środowisko docelowe: Produkcja w chmurze (GCP lub AWS).
@@ -11,8 +28,6 @@
 
 --- DO ZROBIENIA ---
 [MODUŁ AUTOMATYZACJI I ZAMÓWIEŃ (ORDERS)]
-* Błędna kalkulacja ilości w `process_auto_order_logic` [CZĘŚCIOWO POPRAWIONO]:
-  - Dodano komentarze i wstępną logikę sprawdzającą, ale pełna synchronizacja z wirtualnym stanem wymaga dalszych testów integracyjnych.
 * Usprawnienia procesu zamówień i komunikacji:
   - System powiadomień SMS/E-mail (integracja z API typu Twilio/SmsApi dla progów krytycznych).
   - Elastyczne szablony zamówień (PDF/E-mail) z możliwością wyboru kanału (sklep stacjonarny, telefon, e-commerce).
@@ -101,6 +116,10 @@
   - Zmieniono wyświetlanie ID partii na czytelniejszy format "netto / brutto zł".
 
 [MODUŁ AUTOMATYZACJI I ZAMÓWIEŃ (ORDERS)]
+* Błędna kalkulacja ilości w `process_auto_order_logic` [ZREALIZOWANO I PRZETESTOWANO]:
+  - Zaimplementowano precyzyjne wyliczanie stanu wirtualnego bez uwzględniania bieżącego szkicu AUTO (`virtual_without_draft = virtual_stock - draft.quantity`).
+  - Zsynchronizowano automatyczną aktualizację ilości istniejącego szkicu do poziomu brakującego do `target_stock` oraz automatyczne usuwanie szkicu, gdy stan magazynowy powróci do poziomu >= `min_threshold`.
+  - Dodano pełne pokrycie testami integracyjnymi cyklu życia automatycznych zamówień (tworzenie, aktualizacja ilości, usuwanie niepotrzebnego szkicu, reaktywacja po anulowaniu zamówień ręcznych, fallback dostawców i cen).
 * Pętla nieskończona w automatyzacji zamówień [NAPRAWIONO]:
   - W `inventory/models.py` poprawiono `get_virtual_stock()`, aby uwzględniał tylko zamówienia `CREATED` i `ORDERED`, wykluczając `CANCELLED`.
   - W `orders/utils.py` dodano zabezpieczenie przed nadmiarowym zwiększaniem ilości w istniejących szkicach.

@@ -6,12 +6,30 @@ env/
 # Python - pliki skompilowane
 __pycache__/
 *.py[cod]
+*$py.class
 
 # Baza danych (opcjonalnie, jeśli chcesz mieć czystą bazę na GitHubie)
 db.sqlite3
+*.sqlite3
 
 # Pliki środowiskowe (z hasłami/kluczami)
 .env
+.env.*
+!.env.example
+
+# IDE i edytory
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Zebrane pliki statyczne dla produkcji
+/static/
+/staticfiles/
+staticfiles/
+
+# Logi
+*.log
 
 # Ignoruj wszystkie pliki migracji
 **/migrations/*.py

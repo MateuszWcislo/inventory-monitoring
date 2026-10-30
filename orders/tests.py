@@ -121,6 +121,111 @@ class AutoOrderLogicTest(TestCase):
         self.assertFalse(form.fields['quantity'].disabled)
         self.assertNotIn('(USUNIĘTY)', str(form.fields['product'].help_text))
 
+    def test_auto_order_existing_draft_quantity_sync_and_updates(self):
+        """
+        Test poprawnej synchronizacji ilości w istniejącym szkicu AUTO:
+        - Początkowy brak: min=10, target=20, stock=4 -> draft AUTO na 16 szt.
+        - Spadek fizycznego stanu (np. zużycie/korekta) do 2 szt. -> aktualizacja szkicu do 18 szt.
+        - Zmiana target_stock produktu na 30 -> aktualizacja szkicu do 28 szt.
+        - Pojawienie się ręcznego zamówienia ORDERED na 10 szt. -> redukcja szkicu do 18 szt.
+        """
+        product = Product.objects.create(
+            tenant=self.tenant,
+            name="Podkładka Spreżysta",
+            min_threshold=10,
+            target_stock=20
+        )
+        ProductSupplier.objects.create(
+            tenant=self.tenant,
+            product=product,
+            supplier=self.supplier
+        )
+        batch = ProductBatch.objects.create(
+            tenant=self.tenant,
+            product=product,
+            current_stock=4,
+            net_price=Decimal("5.00")
+        )
+
+        auto_order = Order.objects.filter(product=product, order_type='AUTO', status='CREATED').first()
+        self.assertIsNotNone(auto_order)
+        # target (20) - stock (4) = 16
+        self.assertEqual(auto_order.quantity, 16)
+
+        # 1. Zmniejszamy stan magazynowy partii do 2 szt.
+        batch.current_stock = 2
+        batch.save()
+
+        auto_order.refresh_from_db()
+        # target (20) - stock (2) = 18
+        self.assertEqual(auto_order.quantity, 18)
+
+        # 2. Zwiększamy target_stock w produkcie do 30
+        product.target_stock = 30
+        product.save()
+
+        auto_order.refresh_from_db()
+        # target (30) - stock (2) = 28
+        self.assertEqual(auto_order.quantity, 28)
+
+        # 3. Dodajemy ręczne zamówienie w statusie ORDERED na 10 sztuk
+        manual_order = Order.objects.create(
+            tenant=self.tenant,
+            product=product,
+            supplier=self.supplier,
+            quantity=10,
+            order_type='MANUAL',
+            status='ORDERED',
+            net_price=Decimal("5.00")
+        )
+        process_auto_order_logic(product)
+
+        # min_threshold=10, stock=2, manual_ordered=10 -> virtual_without_draft = 2 + 10 = 12 >= min_threshold (10).
+        # Ponieważ stan (12) osiągnął/przekroczył próg minimalny, szkic AUTO nie jest już potrzebny i został usunięty.
+        self.assertFalse(Order.objects.filter(id=auto_order.id).exists())
+
+        # 4. Jeśli stan fizyczny znów spadnie (np. stock=2, zamówione anulowane -> virtual=2 < min=10)
+        manual_order.status = 'CANCELLED'
+        manual_order.save()
+        process_auto_order_logic(product)
+
+        new_auto = Order.objects.filter(product=product, order_type='AUTO', status='CREATED').first()
+        self.assertIsNotNone(new_auto)
+        # target (30) - stock (2) = 28
+        self.assertEqual(new_auto.quantity, 28)
+
+    def test_auto_order_supplier_fallback_to_mapping_and_batch_price(self):
+        """
+        Test doboru dostawcy i ceny dla produktu bez wcześniejszej historii zamówień:
+        - Pobranie dostawcy z ProductSupplier
+        - Pobranie ceny z ProductBatch
+        """
+        product = Product.objects.create(
+            tenant=self.tenant,
+            name="Nowy Produkt Bez Historii",
+            min_threshold=5,
+            target_stock=10
+        )
+        ProductSupplier.objects.create(
+            tenant=self.tenant,
+            product=product,
+            supplier=self.supplier
+        )
+        ProductBatch.objects.create(
+            tenant=self.tenant,
+            product=product,
+            current_stock=2,
+            net_price=Decimal("45.50"),
+            gross_price=Decimal("55.97")
+        )
+
+        auto_order = Order.objects.filter(product=product, order_type='AUTO').first()
+        self.assertIsNotNone(auto_order)
+        self.assertEqual(auto_order.supplier, self.supplier)
+        self.assertEqual(auto_order.net_price, Decimal("45.50"))
+        self.assertEqual(auto_order.gross_price, Decimal("55.97"))
+        self.assertEqual(auto_order.quantity, 8)
+
 
 class OrderCrossTenantIsolationTests(TestCase):
     def setUp(self):
