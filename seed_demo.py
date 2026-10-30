@@ -104,13 +104,21 @@ def seed_demo_data():
         created_products.append(p)
 
     # 4. Tworzenie partii (batches) w obu magazynach oraz powiązanych zamówień
+    from decimal import ROUND_HALF_UP
+    import random
+
+    # Funkcja pomocnicza do losowania wartości Decimal z przedziału
+    def random_decimal(min_val, max_val, places=2):
+        value = random.uniform(float(min_val), float(max_val))
+        return Decimal(str(value)).quantize(Decimal(10) ** -places, rounding=ROUND_HALF_UP)
+
     now = timezone.now()
     batch_configurations = [
-        # (loc, quantity, base_price, days_ago)
-        (loc_main, 25, Decimal('45.00'), 14),
-        (loc_main, 15, Decimal('48.50'), 7),
-        (loc_secondary, 10, Decimal('50.00'), 5),
-        (loc_secondary, 20, Decimal('46.00'), 2),
+        # (loc, quantity [10-50], base_price [40.00-60.00], days_ago [1-30])
+        (loc_main, random.randint(10, 50), random_decimal(40, 60), random.randint(1, 30)),
+        (loc_main, random.randint(10, 50), random_decimal(20, 30), random.randint(1, 30)),
+        (loc_secondary, random.randint(5, 30), random_decimal(50, 65), random.randint(1, 15)),
+        (loc_secondary, random.randint(5, 30), random_decimal(5, 12), random.randint(1, 15)),
     ]
 
     for idx, prod in enumerate(created_products):
