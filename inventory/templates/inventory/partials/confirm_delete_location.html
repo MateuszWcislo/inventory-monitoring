@@ -1,0 +1,35 @@
+<div class="modal-header">
+    <h5 class="modal-title text-danger fw-bold"><i class="bi bi-exclamation-triangle me-2"></i>Usuwanie magazynu</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+</div>
+
+{% if has_active_batches %}
+<div class="modal-body text-center py-4">
+    <i class="bi bi-x-circle text-danger display-4 mb-3 d-block"></i>
+    <h5 class="fw-bold">Nie można usunąć magazynu</h5>
+    <p class="text-muted mb-0">
+        Magazyn <strong>{{ location.name }}</strong> posiada aktywne stany magazynowe w partiach towaru.
+        Przenieś lub wyzeruj stany przed usunięciem magazynu.
+    </p>
+</div>
+<div class="modal-footer bg-light">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
+</div>
+{% else %}
+<form method="post" action="{% url 'location_delete' location.id %}">
+    {% csrf_token %}
+    <div class="modal-body text-center py-4">
+        <i class="bi bi-trash text-danger display-4 mb-3 d-block"></i>
+        <h5 class="fw-bold">Czy na pewno chcesz usunąć ten magazyn?</h5>
+        <p class="text-muted mb-0">
+            Magazyn <strong>{{ location.name }}</strong> zostanie trwale usunięty z systemu.
+        </p>
+    </div>
+    <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" class="btn btn-danger fw-semibold">
+            <i class="bi bi-trash me-1"></i>Tak, usuń magazyn
+        </button>
+    </div>
+</form>
+{% endif %}

@@ -1,0 +1,68 @@
+<tr id="stocktake-item-{{ item.id }}" class="{% if item.difference > 0 %}table-success-subtle{% elif item.difference < 0 %}table-danger-subtle{% endif %}">
+    <td class="ps-4">
+        <span class="fw-bold text-dark">{{ item.product.name }}</span>
+    </td>
+    <td>
+        {% if item.batch and item.batch.location %}
+            <span class="badge bg-light text-dark border">{{ item.batch.location.name }}</span>
+        {% elif item.stocktake.location %}
+            <span class="badge bg-light text-dark border">{{ item.stocktake.location.name }}</span>
+        {% else %}
+            <span class="text-muted">-</span>
+        {% endif %}
+    </td>
+    <td>
+        {% if item.batch %}
+            <span class="small text-muted">{{ item.batch.net_price }} zł netto</span>
+        {% else %}
+            <span class="small text-muted">Brak partii (0 zł)</span>
+        {% endif %}
+    </td>
+    <td class="text-center fw-semibold text-secondary">
+        {{ item.system_quantity }} szt.
+    </td>
+    <td class="text-center" style="max-width: 130px;">
+        {% if item.stocktake.status == 'DRAFT' %}
+            <form hx-post="{% url 'stocktake_item_update' item.id %}"
+                  hx-trigger="change from:find input, keyup delay:600ms from:find input"
+                  hx-target="#stocktake-item-{{ item.id }}"
+                  hx-swap="outerHTML"
+                  class="m-0 d-flex justify-content-center">
+                <input type="number"
+                       name="counted_quantity"
+                       value="{{ item.counted_quantity }}"
+                       min="0"
+                       class="form-control form-control-sm text-center fw-bold"
+                       style="width: 85px;">
+                <input type="hidden" name="notes" value="{{ item.notes|default:'' }}">
+            </form>
+        {% else %}
+            <span class="fw-bold">{{ item.counted_quantity }} szt.</span>
+        {% endif %}
+    </td>
+    <td class="text-center fw-bold">
+        {% if item.difference > 0 %}
+            <span class="text-success">+{{ item.difference }} szt.</span>
+        {% elif item.difference < 0 %}
+            <span class="text-danger">{{ item.difference }} szt.</span>
+        {% else %}
+            <span class="text-muted">0</span>
+        {% endif %}
+    </td>
+    <td class="pe-4">
+        {% if item.stocktake.status == 'DRAFT' %}
+            <input type="text"
+                   name="notes"
+                   value="{{ item.notes|default:'' }}"
+                   placeholder="Dodaj komentarz..."
+                   class="form-control form-control-sm"
+                   hx-post="{% url 'stocktake_item_update' item.id %}"
+                   hx-trigger="change, keyup delay:600ms"
+                   hx-target="#stocktake-item-{{ item.id }}"
+                   hx-swap="outerHTML"
+                   hx-include="closest tr">
+        {% else %}
+            <span class="small text-muted">{{ item.notes|default:"-" }}</span>
+        {% endif %}
+    </td>
+</tr>

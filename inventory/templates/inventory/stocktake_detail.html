@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ stocktake.title }} - Inwentaryzacja - Magazyn Pro{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+    <div>
+        <a href="{% url 'stocktake_list' %}" class="btn btn-sm btn-outline-secondary mb-2">
+            <i class="bi bi-arrow-left me-1"></i>Powrót do listy inwentaryzacji
+        </a>
+        <div class="d-flex align-items-center gap-3">
+            <h2 class="h4 mb-0 fw-bold text-dark">{{ stocktake.title }}</h2>
+            {% if stocktake.status == 'DRAFT' %}
+                <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>W trakcie</span>
+            {% elif stocktake.status == 'COMPLETED' %}
+                <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Zatwierdzona</span>
+            {% elif stocktake.status == 'CANCELLED' %}
+                <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Anulowana</span>
+            {% endif %}
+        </div>
+        <p class="text-muted small mb-0 mt-1">
+            Magazyn: <strong>{{ stocktake.location.name|default:"Wszystkie magazyny" }}</strong> |
+            Utworzył: <strong>{{ stocktake.created_by.username|default:"-" }}</strong> ({{ stocktake.created_at|date:"d.m.Y H:i" }})
+            {% if stocktake.completed_at %} | Zatwierdzono: {{ stocktake.completed_at|date:"d.m.Y H:i" }}{% endif %}
+        </p>
+    </div>
+
+    {% if stocktake.status == 'DRAFT' %}
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-danger"
+                hx-get="{% url 'stocktake_cancel' stocktake.id %}"
+                hx-target="#modal-content"
+                data-bs-toggle="modal"
+                data-bs-target="#productModal">
+            <i class="bi bi-x-circle me-1"></i>Anuluj arkusz
+        </button>
+        <button class="btn btn-success fw-semibold shadow-sm"
+                hx-get="{% url 'stocktake_complete' stocktake.id %}"
+                hx-target="#modal-content"
+                data-bs-toggle="modal"
+                data-bs-target="#productModal">
+            <i class="bi bi-check-all me-1"></i>Zatwierdź i zaktualizuj stany
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- KARTY PODSUMOWANIA -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 bg-light">
+            <div class="card-body">
+                <div class="text-muted small">Suma wg systemu</div>
+                <div class="fs-4 fw-bold text-secondary">{{ total_system }} szt.</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 bg-light">
+            <div class="card-body">
+                <div class="text-muted small">Suma spisana z natury</div>
+                <div class="fs-4 fw-bold text-primary">{{ total_counted }} szt.</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 bg-light">
+            <div class="card-body">
+                <div class="text-muted small">Łączna różnica (Bilans)</div>
+                <div class="fs-4 fw-bold {% if total_difference > 0 %}text-success{% elif total_difference < 0 %}text-danger{% else %}text-muted{% endif %}">
+                    {% if total_difference > 0 %}+{% endif %}{{ total_difference }} szt.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if stocktake.notes %}
+<div class="alert alert-light border shadow-sm mb-4">
+    <strong>Uwagi do inwentaryzacji:</strong> {{ stocktake.notes }}
+</div>
+{% endif %}
+
+<!-- TABELA POZYCJI -->
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white py-3">
+        <h5 class="card-title mb-0 fw-bold">Pozycje arkusza spisowego</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Produkt</th>
+                        <th>Magazyn</th>
+                        <th>Partia (Cena)</th>
+                        <th class="text-center">Stan systemowy</th>
+                        <th class="text-center">Stan faktyczny</th>
+                        <th class="text-center">Różnica</th>
+                        <th class="pe-4">Komentarz</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                        {% include 'inventory/partials/stocktake_item_row.html' with item=item %}
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            Brak pozycji w tej inwentaryzacji.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

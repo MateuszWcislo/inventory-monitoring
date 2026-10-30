@@ -1,0 +1,45 @@
+<div class="modal-header">
+    <h5 class="modal-title fw-bold">
+        <i class="bi bi-geo-alt text-primary me-2"></i>{{ title }}
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+</div>
+
+<form method="post" action="{% if location %}{% url 'location_edit' location.id %}{% else %}{% url 'location_create' %}{% endif %}">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Nazwa magazynu <span class="text-danger">*</span></label>
+            {{ form.name }}
+            {% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors.0 }}</div>{% endif %}
+        </div>
+
+        <div class="row g-2 mb-3">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Kod magazynu</label>
+                {{ form.code }}
+                {% if form.code.errors %}<div class="text-danger small mt-1">{{ form.code.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Adres</label>
+                {{ form.address }}
+                {% if form.address.errors %}<div class="text-danger small mt-1">{{ form.address.errors.0 }}</div>{% endif %}
+            </div>
+        </div>
+
+        <div class="form-check form-switch mb-2">
+            {{ form.is_default }}
+            <label class="form-check-label fw-semibold" for="{{ form.is_default.id_for_label }}">
+                Ustaw jako magazyn domyślny
+            </label>
+            <div class="form-text">Domyślny magazyn będzie automatycznie przypisywany do nowych partii towaru.</div>
+        </div>
+    </div>
+
+    <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" class="btn btn-primary fw-semibold">
+            <i class="bi bi-check-lg me-1"></i>Zapisz
+        </button>
+    </div>
+</form>

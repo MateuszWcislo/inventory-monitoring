@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}Inwentaryzacja - Magazyn Pro{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h4 mb-1 fw-bold text-dark"><i class="bi bi-clipboard2-check text-primary me-2"></i>Inwentaryzacja</h2>
+        <p class="text-muted small mb-0">Arkusze spisowe i weryfikacja zgodności stanów magazynowych z naturą.</p>
+    </div>
+    <button class="btn btn-primary shadow-sm"
+            hx-get="{% url 'stocktake_create' %}"
+            hx-target="#modal-content"
+            data-bs-toggle="modal"
+            data-bs-target="#productModal">
+        <i class="bi bi-plus-lg me-1"></i>Nowa inwentaryzacja
+    </button>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Tytuł arkusza</th>
+                        <th>Magazyn</th>
+                        <th>Status</th>
+                        <th>Utworzył</th>
+                        <th>Data utworzenia</th>
+                        <th>Data zatwierdzenia</th>
+                        <th class="text-end pe-4">Akcje</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for st in stocktakes %}
+                    <tr>
+                        <td class="ps-4 fw-bold">
+                            <a href="{% url 'stocktake_detail' st.id %}" class="text-decoration-none text-dark">
+                                {{ st.title }}
+                            </a>
+                        </td>
+                        <td>
+                            {% if st.location %}
+                                <span class="badge bg-light text-dark border"><i class="bi bi-geo-alt me-1"></i>{{ st.location.name }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary-subtle text-secondary">Wszystkie magazyny</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if st.status == 'DRAFT' %}
+                                <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>W trakcie</span>
+                            {% elif st.status == 'COMPLETED' %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Zatwierdzona</span>
+                            {% elif st.status == 'CANCELLED' %}
+                                <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Anulowana</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ st.created_by.username|default:"-" }}</td>
+                        <td>{{ st.created_at|date:"d.m.Y H:i" }}</td>
+                        <td>{{ st.completed_at|date:"d.m.Y H:i"|default:"-" }}</td>
+                        <td class="text-end pe-4">
+                            <a href="{% url 'stocktake_detail' st.id %}" class="btn btn-sm btn-outline-primary" title="Otwórz arkusz">
+                                <i class="bi bi-folder2-open me-1"></i>Otwórz
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="bi bi-clipboard2-check display-6 d-block mb-2 text-secondary"></i>
+                            Brak przeprowadzonych inwentaryzacji. Kliknij "Nowa inwentaryzacja", aby utworzyć arkusz spisowy.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

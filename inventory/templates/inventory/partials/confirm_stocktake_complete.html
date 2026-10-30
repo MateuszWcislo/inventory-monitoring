@@ -1,0 +1,22 @@
+<div class="modal-header">
+    <h5 class="modal-title text-success fw-bold"><i class="bi bi-check-circle me-2"></i>Zatwierdzenie inwentaryzacji</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+</div>
+
+<form method="post" action="{% url 'stocktake_complete' stocktake.id %}">
+    {% csrf_token %}
+    <div class="modal-body text-center py-4">
+        <i class="bi bi-clipboard2-check text-success display-4 mb-3 d-block"></i>
+        <h5 class="fw-bold">Czy na pewno chcesz zatwierdzić tę inwentaryzację?</h5>
+        <p class="text-muted mb-0">
+            Wszystkie stany partii magazynowych zostaną bezpowrotnie zaktualizowane zgodnie ze stanem faktycznym zapisanym w arkuszu.
+            Wszelkie rozbieżności zostaną odnotowane w historii aktywności.
+        </p>
+    </div>
+    <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" class="btn btn-success fw-semibold">
+            <i class="bi bi-check-all me-1"></i>Tak, zatwierdź i zaktualizuj stany
+        </button>
+    </div>
+</form>

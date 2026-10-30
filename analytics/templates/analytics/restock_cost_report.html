@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+
+{% block title %}Prognoza Kosztów Zamówień - Magazyn Pro{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h4 mb-1 fw-bold text-dark"><i class="bi bi-calculator text-primary me-2"></i>Prognoza Kosztów Zamówień</h2>
+        <p class="text-muted small mb-0">Szacowane koszty uzupełnienia braków magazynowych do poziomu stanów minimalnych.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'analytics_dashboard' %}" class="btn btn-outline-secondary shadow-sm">
+            <i class="bi bi-arrow-left me-1"></i>Powrót do Analityki
+        </a>
+        <div class="dropdown">
+            <button class="btn btn-primary dropdown-toggle shadow-sm" type="button" data-bs-toggle="dropdown">
+                <i class="bi bi-download me-1"></i>Eksportuj raport
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow">
+                <li><a class="dropdown-item" href="{% url 'export_restock_excel' %}{% if selected_location %}?location={{ selected_location.id }}{% endif %}"><i class="bi bi-file-earmark-excel text-success me-2"></i>Eksport do Excel (.xlsx)</a></li>
+                <li><a class="dropdown-item" href="{% url 'export_restock_csv' %}{% if selected_location %}?location={{ selected_location.id }}{% endif %}"><i class="bi bi-file-earmark-spreadsheet text-primary me-2"></i>Eksport do CSV (.csv)</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- FILTR WG MAGAZYNU -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body py-3">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-auto">
+                <label class="col-form-label fw-semibold text-muted small"><i class="bi bi-funnel me-1"></i>Filtruj wg magazynu:</label>
+            </div>
+            <div class="col-md-4">
+                <select name="location" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">Wszystkie magazyny</option>
+                    {% for loc in locations %}
+                        <option value="{{ loc.id }}" {% if selected_location.id == loc.id %}selected{% endif %}>{{ loc.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% if selected_location %}
+            <div class="col-auto">
+                <a href="{% url 'restock_cost_report' %}" class="btn btn-sm btn-link text-decoration-none text-danger">Wyczyść filtr</a>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- PODSUMOWANIE METRYK -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 border-start border-primary border-4 h-100">
+            <div class="card-body">
+                <span class="text-muted small fw-semibold d-block mb-1">Pozycje wymagające uzupełnienia</span>
+                <h3 class="h4 fw-bold mb-0 text-primary">{{ report.total_products_count }} produktów</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 border-start border-warning border-4 h-100">
+            <div class="card-body">
+                <span class="text-muted small fw-semibold d-block mb-1">Łączny brak ilościowy</span>
+                <h3 class="h4 fw-bold mb-0 text-dark">{{ report.total_shortage_qty }} sztuk</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 border-start border-success border-4 h-100">
+            <div class="card-body">
+                <span class="text-muted small fw-semibold d-block mb-1">Szacowany koszt netto / brutto</span>
+                <h3 class="h4 fw-bold mb-0 text-success">{{ report.total_estimated_cost_net|floatformat:2 }} zł</h3>
+                <span class="text-muted small">Brutto: <strong>{{ report.total_estimated_cost_gross|floatformat:2 }} zł</strong></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TABELA BRAKÓW I PROGNOZY KOSZTÓW -->
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Produkt</th>
+                        <th class="text-center">Stan akt.</th>
+                        <th class="text-center">Stan min.</th>
+                        <th class="text-center">Brak (szt.)</th>
+                        <th class="text-end">Cena jedn. netto</th>
+                        <th class="text-end">Szacowany koszt netto</th>
+                        <th class="text-end">Szacowany koszt brutto</th>
+                        <th class="pe-4 text-end">Sugerowany dostawca</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in report.items %}
+                    <tr>
+                        <td class="ps-4">
+                            <span class="fw-bold text-dark">{{ item.product.name }}</span>
+                            {% if item.product.local_id %}
+                                <span class="badge bg-light text-muted border ms-1">#{{ item.product.local_id }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">{{ item.current_stock }}</span>
+                        </td>
+                        <td class="text-center text-muted fw-semibold">
+                            {{ item.min_stock_level }}
+                        </td>
+                        <td class="text-center fw-bold text-danger">
+                            +{{ item.shortage_quantity }} szt.
+                        </td>
+                        <td class="text-end text-muted">
+                            {{ item.unit_price_net|floatformat:2 }} zł
+                        </td>
+                        <td class="text-end fw-bold text-dark">
+                            {{ item.total_cost_net|floatformat:2 }} zł
+                        </td>
+                        <td class="text-end text-muted">
+                            {{ item.total_cost_gross|floatformat:2 }} zł
+                        </td>
+                        <td class="pe-4 text-end">
+                            {% if item.supplier_name != "Brak powiązania" %}
+                                <span class="badge bg-secondary-subtle text-secondary">{{ item.supplier_name }}</span>
+                            {% else %}
+                                <span class="text-muted small">Brak dostawcy</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-muted">
+                            <i class="bi bi-check-circle display-6 d-block mb-2 text-success"></i>
+                            Wszystkie stany magazynowe są na poziomie wymaganego minimum lub wyższym. Brak zapotrzebowania na zamówienia!
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                {% if report.items %}
+                <tfoot class="table-light fw-bold border-top">
+                    <tr>
+                        <td colspan="3" class="ps-4 text-uppercase">ŁĄCZNIE</td>
+                        <td class="text-center text-danger">+{{ report.total_shortage_qty }} szt.</td>
+                        <td></td>
+                        <td class="text-end text-dark">{{ report.total_estimated_cost_net|floatformat:2 }} zł</td>
+                        <td class="text-end text-muted">{{ report.total_estimated_cost_gross|floatformat:2 }} zł</td>
+                        <td class="pe-4"></td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

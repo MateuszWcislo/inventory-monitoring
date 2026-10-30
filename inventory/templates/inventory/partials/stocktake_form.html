@@ -1,0 +1,37 @@
+<div class="modal-header">
+    <h5 class="modal-title fw-bold">
+        <i class="bi bi-clipboard2-plus text-primary me-2"></i>{{ title }}
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+</div>
+
+<form method="post" action="{% url 'stocktake_create' %}">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Tytuł / Numer inwentaryzacji <span class="text-danger">*</span></label>
+            {{ form.title }}
+            {% if form.title.errors %}<div class="text-danger small mt-1">{{ form.title.errors.0 }}</div>{% endif %}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Magazyn (zakres spisu)</label>
+            {{ form.location }}
+            <div class="form-text">Pozostaw "Wszystkie magazyny", aby objąć spisem wszystkie lokalizacje.</div>
+            {% if form.location.errors %}<div class="text-danger small mt-1">{{ form.location.errors.0 }}</div>{% endif %}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Uwagi / Opis</label>
+            {{ form.notes }}
+            {% if form.notes.errors %}<div class="text-danger small mt-1">{{ form.notes.errors.0 }}</div>{% endif %}
+        </div>
+    </div>
+
+    <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" class="btn btn-primary fw-semibold">
+            <i class="bi bi-file-earmark-plus me-1"></i>Utwórz arkusz
+        </button>
+    </div>
+</form>

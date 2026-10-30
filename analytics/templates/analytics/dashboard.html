@@ -1,0 +1,616 @@
+{% extends 'base.html' %}
+
+{% block title %}Analityka i Raporty - Magazyn Pro{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h4 mb-1 fw-bold text-dark"><i class="bi bi-graph-up text-primary me-2"></i>Analityka i Raportowanie</h2>
+        <p class="text-muted small mb-0">Statystyki magazynu, rotacja zapasów, zużycie w zleceniach oraz analiza zamówień.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'restock_cost_report' %}" class="btn btn-outline-primary shadow-sm">
+            <i class="bi bi-calculator me-1"></i>Prognoza braków i kosztów
+        </a>
+        <div class="dropdown">
+            <button class="btn btn-primary dropdown-toggle shadow-sm" type="button" data-bs-toggle="dropdown">
+                <i class="bi bi-download me-1"></i>Eksportuj raporty
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow">
+                <li class="dropdown-header small text-uppercase fw-bold text-muted">Aktualny stan magazynowy</li>
+                <li><a class="dropdown-item" href="{% url 'export_stock_excel' %}"><i class="bi bi-file-earmark-excel text-success me-2"></i>Stan magazynowy (.xlsx)</a></li>
+                <li><a class="dropdown-item" href="{% url 'export_stock_csv' %}"><i class="bi bi-file-earmark-spreadsheet text-primary me-2"></i>Stan magazynowy (.csv)</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li class="dropdown-header small text-uppercase fw-bold text-muted">Raporty w wybranym okresie</li>
+                <li><a class="dropdown-item" href="{% url 'export_consumption_excel' %}{% if date_from or date_to or preset %}?{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}{% if preset %}preset={{ preset }}{% endif %}{% endif %}"><i class="bi bi-file-earmark-excel text-warning me-2"></i>Zużycie części w zleceniach (.xlsx)</a></li>
+                <li><a class="dropdown-item" href="{% url 'export_consumption_csv' %}{% if date_from or date_to or preset %}?{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}{% if preset %}preset={{ preset }}{% endif %}{% endif %}"><i class="bi bi-file-earmark-spreadsheet text-warning me-2"></i>Zużycie części w zleceniach (.csv)</a></li>
+                <li><a class="dropdown-item" href="{% url 'export_orders_excel' %}{% if date_from or date_to or preset %}?{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}{% if preset %}preset={{ preset }}{% endif %}{% endif %}"><i class="bi bi-file-earmark-excel text-info me-2"></i>Zamówienia w okresie (.xlsx)</a></li>
+                <li><a class="dropdown-item" href="{% url 'export_orders_csv' %}{% if date_from or date_to or preset %}?{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}{% if preset %}preset={{ preset }}{% endif %}{% endif %}"><i class="bi bi-file-earmark-spreadsheet text-info me-2"></i>Zamówienia w okresie (.csv)</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- PASEK FILTROWANIA ZAKRESU CZASOWEGO -->
+<div class="card shadow-sm border-0 mb-4 bg-light-subtle border-start border-primary border-3">
+    <div class="card-body py-3">
+        <form method="get" class="row g-3 align-items-center">
+            {% if selected_product %}<input type="hidden" name="product_id" value="{{ selected_product.id }}">{% endif %}
+            {% if selected_location %}<input type="hidden" name="location_id" value="{{ selected_location.id }}">{% endif %}
+            <div class="col-12 col-xl-auto">
+                <span class="fw-bold text-dark d-flex align-items-center gap-1">
+                    <i class="bi bi-calendar3 text-primary"></i> Okno czasowe:
+                </span>
+            </div>
+            <div class="col-auto">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white text-muted">Od</span>
+                    <input type="date" name="date_from" value="{{ date_from }}" class="form-control" placeholder="RRRR-MM-DD">
+                </div>
+            </div>
+            <div class="col-auto">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white text-muted">Do</span>
+                    <input type="date" name="date_to" value="{{ date_to }}" class="form-control" placeholder="RRRR-MM-DD">
+                </div>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-primary">
+                    <i class="bi bi-funnel me-1"></i>Filtruj
+                </button>
+            </div>
+            <div class="col-auto d-flex align-items-center gap-1 flex-wrap border-start ps-3">
+                <span class="text-muted small me-1">Szybki wybór:</span>
+                <a href="?preset=7d{% if selected_product %}&product_id={{ selected_product.id }}{% endif %}{% if selected_location %}&location_id={{ selected_location.id }}{% endif %}" class="btn btn-xs btn-outline-secondary py-1 px-2 {% if preset == '7d' %}active btn-secondary text-white{% endif %}">7 dni</a>
+                <a href="?preset=30d{% if selected_product %}&product_id={{ selected_product.id }}{% endif %}{% if selected_location %}&location_id={{ selected_location.id }}{% endif %}" class="btn btn-xs btn-outline-secondary py-1 px-2 {% if preset == '30d' %}active btn-secondary text-white{% endif %}">30 dni</a>
+                <a href="?preset=90d{% if selected_product %}&product_id={{ selected_product.id }}{% endif %}{% if selected_location %}&location_id={{ selected_location.id }}{% endif %}" class="btn btn-xs btn-outline-secondary py-1 px-2 {% if preset == '90d' %}active btn-secondary text-white{% endif %}">90 dni</a>
+                <a href="?preset=month{% if selected_product %}&product_id={{ selected_product.id }}{% endif %}{% if selected_location %}&location_id={{ selected_location.id }}{% endif %}" class="btn btn-xs btn-outline-secondary py-1 px-2 {% if preset == 'month' %}active btn-secondary text-white{% endif %}">Ten miesiąc</a>
+                <a href="?preset=all{% if selected_product %}&product_id={{ selected_product.id }}{% endif %}{% if selected_location %}&location_id={{ selected_location.id }}{% endif %}" class="btn btn-xs btn-outline-secondary py-1 px-2 {% if preset == 'all' or not has_date_filter %}active btn-secondary text-white{% endif %}">Cały okres</a>
+            </div>
+            {% if has_date_filter and preset != 'all' %}
+            <div class="col-auto ms-auto">
+                <a href="{% url 'analytics_dashboard' %}{% if selected_product or selected_location %}?{% if selected_product %}product_id={{ selected_product.id }}&{% endif %}{% if selected_location %}location_id={{ selected_location.id }}{% endif %}{% endif %}" class="btn btn-sm btn-link text-danger text-decoration-none p-0">
+                    <i class="bi bi-x-circle me-1"></i>Wyczyść filtr dat
+                </a>
+            </div>
+            {% endif %}
+        </form>
+        {% if date_from or date_to %}
+        <div class="mt-2 text-muted small">
+            <i class="bi bi-info-circle me-1 text-primary"></i>Aktywny filtr dla rotacji zużycia i zamówień:
+            <strong>{% if date_from %}od {{ date_from }}{% endif %} {% if date_to %}do {{ date_to }}{% endif %}</strong>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- KARTY PODSUMOWANIA (KPI BIEŻĄCE) -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted small fw-semibold">Produkty w bazie</span>
+                    <span class="badge bg-primary-subtle text-primary p-2 rounded-circle"><i class="bi bi-box-seam fs-6"></i></span>
+                </div>
+                <h3 class="h4 fw-bold mb-1">{{ total_products }}</h3>
+                <span class="text-muted small">Suma sztuk: <strong>{{ total_stock_items|default:"0" }}</strong></span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted small fw-semibold">Wartość magazynu (Netto)</span>
+                    <span class="badge bg-success-subtle text-success p-2 rounded-circle"><i class="bi bi-currency-dollar fs-6"></i></span>
+                </div>
+                <h3 class="h4 fw-bold mb-1 text-success">{{ total_inventory_net|floatformat:2 }} zł</h3>
+                <span class="text-muted small">Brutto: <strong>{{ total_inventory_gross|floatformat:2 }} zł</strong></span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted small fw-semibold">Pozycje poniżej min.</span>
+                    <span class="badge bg-danger-subtle text-danger p-2 rounded-circle"><i class="bi bi-exclamation-triangle fs-6"></i></span>
+                </div>
+                <h3 class="h4 fw-bold mb-1 text-danger">{{ low_stock_products_count }}</h3>
+                <span class="text-muted small">Wymagają zamówienia</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted small fw-semibold">Szacowany koszt braków</span>
+                    <span class="badge bg-warning-subtle text-warning p-2 rounded-circle"><i class="bi bi-cart-plus fs-6"></i></span>
+                </div>
+                <h3 class="h4 fw-bold mb-1 text-dark">{{ estimated_restock_cost|floatformat:2 }} zł</h3>
+                <span class="text-muted small"><a href="{% url 'restock_cost_report' %}" class="text-decoration-none">Zobacz szczegóły &rarr;</a></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PODSUMOWANIE OBROTÓW W WYBRANYM OKRESIE -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0 border-start border-info border-4 h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-bold text-dark"><i class="bi bi-truck text-info me-2"></i>Zamówienia w okresie</span>
+                    <span class="badge bg-info-subtle text-info">{{ period_orders_count }} zamówień</span>
+                </div>
+                <div class="d-flex justify-content-between text-muted small">
+                    <span>Zamówione sztuki: <strong>{{ period_ordered_items_qty }}</strong></span>
+                    <span>Wartość zamówień netto: <strong class="text-dark">{{ period_ordered_val_net|floatformat:2 }} zł</strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0 border-start border-warning border-4 h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-bold text-dark"><i class="bi bi-wrench text-warning me-2"></i>Zużycie części w Zleceniach w okresie</span>
+                    <span class="badge bg-warning-subtle text-dark">{{ period_work_orders_count }} zleceń</span>
+                </div>
+                <div class="d-flex justify-content-between text-muted small">
+                    <span>Zużyte sztuki: <strong>{{ period_consumed_items_qty }}</strong></span>
+                    <span>Wartość zużycia netto: <strong class="text-dark">{{ period_consumed_val_net|floatformat:2 }} zł</strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- WYKRES LINIOWY: TREND PRODUKTU W CZASIE (DOSTAWY VS ZUŻYCIE) -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white border-0 py-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+                <h5 class="card-title mb-1 fw-bold text-dark">
+                    <i class="bi bi-graph-up-arrow text-primary me-2"></i>Bilans produktu w czasie (Dostawy vs Zużycie)
+                </h5>
+                <p class="text-muted small mb-0">Dzienna suma odebranych zamówień oraz zużycia części w zleceniach pracy.</p>
+            </div>
+            
+            <!-- Formularz wyboru produktu i magazynu -->
+            <form method="get" class="d-flex flex-wrap align-items-center gap-2">
+                {% if date_from %}<input type="hidden" name="date_from" value="{{ date_from }}">{% endif %}
+                {% if date_to %}<input type="hidden" name="date_to" value="{{ date_to }}">{% endif %}
+                {% if preset %}<input type="hidden" name="preset" value="{{ preset }}">{% endif %}
+                
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-light text-muted"><i class="bi bi-box-seam me-1"></i>Produkt</span>
+                    <select name="product_id" class="form-select" onchange="this.form.submit()">
+                        {% for prod in tenant_products %}
+                            <option value="{{ prod.id }}" {% if selected_product and selected_product.id == prod.id %}selected{% endif %}>
+                                {{ prod.name }}{% if prod.is_favourite %} ★{% endif %}
+                            </option>
+                        {% empty %}
+                            <option value="">Brak produktów</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-light text-muted"><i class="bi bi-geo-alt me-1"></i>Magazyn</span>
+                    <select name="location_id" class="form-select" onchange="this.form.submit()">
+                        <option value="">Wszystkie magazyny</option>
+                        {% for loc in tenant_locations %}
+                            <option value="{{ loc.id }}" {% if selected_location and selected_location.id == loc.id %}selected{% endif %}>
+                                {{ loc.name }}{% if loc.is_default %} (Domyślny){% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-sm btn-outline-primary" title="Odśwież wykres">
+                    <i class="bi bi-arrow-repeat"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="card-body pt-0">
+        {% if selected_product %}
+            <!-- Mini KPI dla wybranego produktu w oknie -->
+            <div class="row g-2 mb-3 py-2 px-3 bg-light rounded-3 align-items-center">
+                <div class="col-12 col-md-4">
+                    <span class="text-muted small">Analizowany produkt:</span>
+                    <span class="fw-bold text-dark d-block text-truncate">{{ selected_product.name }}</span>
+                    {% if selected_location %}
+                        <span class="badge bg-secondary-subtle text-secondary small">Magazyn: {{ selected_location.name }}</span>
+                    {% else %}
+                        <span class="badge bg-light text-muted border small">Wszystkie magazyny</span>
+                    {% endif %}
+                </div>
+                <div class="col-4 col-md-2 text-center border-start">
+                    <span class="text-muted small d-block">Odebrano (Dostawy)</span>
+                    <span class="fw-bold text-success fs-6">+{{ trend_total_received }} szt.</span>
+                </div>
+                <div class="col-4 col-md-2 text-center border-start">
+                    <span class="text-muted small d-block">Zużyto (Zlecenia)</span>
+                    <span class="fw-bold text-danger fs-6">-{{ trend_total_consumed }} szt.</span>
+                </div>
+                <div class="col-4 col-md-2 text-center border-start">
+                    <span class="text-muted small d-block">Bilans okresu</span>
+                    <span class="fw-bold {% if trend_net_balance >= 0 %}text-primary{% else %}text-danger{% endif %} fs-6">
+                        {% if trend_net_balance > 0 %}+{% endif %}{{ trend_net_balance }} szt.
+                    </span>
+                </div>
+            </div>
+
+            <div style="position: relative; height: 320px;">
+                <canvas id="productTrendChart"></canvas>
+            </div>
+        {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-box-seam display-6 d-block mb-2 text-secondary"></i>
+                Brak produktów w bazie dla Twojej firmy.
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- WYKRESY -->
+<div class="row g-4 mb-4">
+    <!-- Wykres: Najczęściej zamawiane produkty w okresie -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white border-0 py-3">
+                <h5 class="card-title mb-0 fw-bold text-dark"><i class="bi bi-cart-check text-primary me-2"></i>Najczęściej zamawiane produkty (Ilość w okresie)</h5>
+            </div>
+            <div class="card-body pt-0 d-flex flex-column justify-content-center">
+                {% if top_ordered_labels %}
+                    <div style="position: relative; height: 280px;">
+                        <canvas id="topOrderedChart"></canvas>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-bar-chart display-6 d-block mb-2 text-secondary"></i>
+                        Brak zamówień w wybranym oknie czasowym.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Wykres: Największa rotacja / zużycie w Zleceniach w okresie -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white border-0 py-3">
+                <h5 class="card-title mb-0 fw-bold text-dark"><i class="bi bi-lightning-charge text-warning me-2"></i>Zużycie części w Zleceniach (Rotacja w okresie)</h5>
+            </div>
+            <div class="card-body pt-0 d-flex flex-column justify-content-center">
+                {% if top_consumed_labels %}
+                    <div style="position: relative; height: 280px;">
+                        <canvas id="topConsumedChart"></canvas>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-pie-chart display-6 d-block mb-2 text-secondary"></i>
+                        Brak zużycia materiałów w wybranym oknie czasowym.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Wykres: Wartość magazynu wg lokalizacji (stan bieżący) -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white border-0 py-3">
+                <h5 class="card-title mb-0 fw-bold text-dark"><i class="bi bi-geo-alt text-success me-2"></i>Wartość zapasów wg magazynów (zł netto, stan bieżący)</h5>
+            </div>
+            <div class="card-body pt-0 d-flex flex-column justify-content-center">
+                {% if location_labels %}
+                    <div style="position: relative; height: 280px;">
+                        <canvas id="locationChart"></canvas>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-building display-6 d-block mb-2 text-secondary"></i>
+                        Brak danych magazynowych.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Wykres: Statusy zamówień w okresie -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white border-0 py-3">
+                <h5 class="card-title mb-0 fw-bold text-dark"><i class="bi bi-truck text-info me-2"></i>Struktura statusów zamówień (w okresie)</h5>
+            </div>
+            <div class="card-body pt-0 d-flex flex-column justify-content-center">
+                {% if order_status_labels %}
+                    <div style="position: relative; height: 280px;">
+                        <canvas id="orderStatusChart"></canvas>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-cart display-6 d-block mb-2 text-secondary"></i>
+                        Brak zamówień w wybranym oknie czasowym.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ZESTAWIENIA TABELARYCZNE W WYBRANYM OKRESIE -->
+<div class="row g-4 mb-4">
+    <!-- Tabela: Zużycie materiałów w okresie -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0 fw-bold text-dark"><i class="bi bi-list-check text-warning me-2"></i>Zestawienie zużytych części</h5>
+                <a href="{% url 'export_consumption_excel' %}{% if date_from or date_to or preset %}?{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}{% if preset %}preset={{ preset }}{% endif %}{% endif %}" class="btn btn-sm btn-outline-warning">
+                    <i class="bi bi-download me-1"></i>Excel
+                </a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Materiał / Część</th>
+                                <th class="text-center">Zużyta ilość</th>
+                                <th class="pe-3 text-end">Wartość netto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in top_consumed_list %}
+                            <tr>
+                                <td class="ps-3 fw-semibold text-dark">{{ item.name }}</td>
+                                <td class="text-center"><span class="badge bg-warning-subtle text-dark">{{ item.quantity }} szt.</span></td>
+                                <td class="pe-3 text-end text-muted">{{ item.total_net|floatformat:2 }} zł</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-muted">Brak zarejestrowanego zużycia w tym okresie.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela: Zamówienia w okresie -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0 fw-bold text-dark"><i class="bi bi-cart-dash text-primary me-2"></i>Zestawienie zamówionych towarów</h5>
+                <a href="{% url 'export_orders_excel' %}{% if date_from or date_to or preset %}?{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}{% if preset %}preset={{ preset }}{% endif %}{% endif %}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-download me-1"></i>Excel
+                </a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Produkt</th>
+                                <th class="text-center">Zamówiona ilość</th>
+                                <th class="pe-3 text-end">Wartość netto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in top_ordered_list %}
+                            <tr>
+                                <td class="ps-3 fw-semibold text-dark">{{ item.name }}</td>
+                                <td class="text-center"><span class="badge bg-primary-subtle text-primary">{{ item.quantity }} szt.</span></td>
+                                <td class="pe-3 text-end text-muted">{{ item.total_net|floatformat:2 }} zł</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-muted">Brak zamówień w tym okresie.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const primaryColor = '#0d6efd';
+    const warningColor = '#ffc107';
+
+    // 1. Top Ordered Chart
+    {% if top_ordered_labels %}
+    new Chart(document.getElementById('topOrderedChart'), {
+        type: 'bar',
+        data: {
+            labels: {{ top_ordered_labels|safe }},
+            datasets: [{
+                label: 'Zamówione sztuki',
+                data: {{ top_ordered_data|safe }},
+                backgroundColor: 'rgba(13, 110, 253, 0.75)',
+                borderColor: primaryColor,
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#f0f0f0' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+    {% endif %}
+
+    // 2. Top Consumed Chart
+    {% if top_consumed_labels %}
+    new Chart(document.getElementById('topConsumedChart'), {
+        type: 'bar',
+        data: {
+            labels: {{ top_consumed_labels|safe }},
+            datasets: [{
+                label: 'Zużyte sztuki',
+                data: {{ top_consumed_data|safe }},
+                backgroundColor: 'rgba(255, 193, 7, 0.75)',
+                borderColor: '#e0a800',
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { beginAtZero: true, grid: { color: '#f0f0f0' } },
+                y: { grid: { display: false } }
+            }
+        }
+    });
+    {% endif %}
+
+    // 3. Location Value Chart
+    {% if location_labels %}
+    new Chart(document.getElementById('locationChart'), {
+        type: 'doughnut',
+        data: {
+            labels: {{ location_labels|safe }},
+            datasets: [{
+                data: {{ location_data|safe }},
+                backgroundColor: [
+                    'rgba(25, 135, 84, 0.8)',
+                    'rgba(13, 110, 253, 0.8)',
+                    'rgba(13, 202, 240, 0.8)',
+                    'rgba(255, 193, 7, 0.8)',
+                    'rgba(108, 117, 125, 0.8)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+    {% endif %}
+
+    // 4. Order Status Chart
+    {% if order_status_labels %}
+    new Chart(document.getElementById('orderStatusChart'), {
+        type: 'pie',
+        data: {
+            labels: {{ order_status_labels|safe }},
+            datasets: [{
+                data: {{ order_status_data|safe }},
+                backgroundColor: [
+                    'rgba(13, 110, 253, 0.8)',
+                    'rgba(255, 193, 7, 0.8)',
+                    'rgba(25, 135, 84, 0.8)',
+                    'rgba(220, 53, 69, 0.8)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+    {% endif %}
+
+    // 5. Product Trend Line Chart (Received Orders vs Consumed in Work Orders)
+    {% if selected_product and trend_dates %}
+    new Chart(document.getElementById('productTrendChart'), {
+        type: 'line',
+        data: {
+            labels: {{ trend_dates|safe }},
+            datasets: [
+                {
+                    label: 'Odebrane zamówienia (Dostawy)',
+                    data: {{ trend_received_data|safe }},
+                    borderColor: '#198754',
+                    backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.2,
+                    fill: true,
+                    pointBackgroundColor: '#198754',
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                },
+                {
+                    label: 'Zużyte sztuki (Zlecenia)',
+                    data: {{ trend_consumed_data|safe }},
+                    borderColor: '#dc3545',
+                    backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.2,
+                    fill: true,
+                    pointBackgroundColor: '#dc3545',
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        boxWidth: 8
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y + ' szt.';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    },
+                    grid: { color: '#f0f0f0' }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+    {% endif %}
+});
+</script>
+{% endblock %}
